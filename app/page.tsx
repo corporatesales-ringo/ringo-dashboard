@@ -296,10 +296,11 @@ export default function RevenueDashboardReact() {
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                     <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fill: "#64748b", fontSize: 12 }} />
                     <YAxis
-                      tickFormatter={(value: number) => `$${value / 1000}K`}
-                      tickLine={false}
-                      axisLine={false}
-                      tick={{ fill: "#64748b", fontSize: 12 }}
+  tickFormatter={(value: number) => `$${value / 1000}K`}
+  tickLine={false}
+  axisLine={false}
+  tick={{ fill: "#64748b", fontSize: 12 }}
+/>
                     />
                     <Tooltip
                       contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0", boxShadow: "0 8px 24px rgba(15,23,42,0.08)" }}
@@ -476,11 +477,12 @@ export default function RevenueDashboardReact() {
                     </div>
                     <div className="grid gap-2">
                       <Label>Channel</Label>
-                      <Select
-                        value={form.channel}
-                        onValueChange={(v) =>
-                          setForm({ ...form, channel: v as "Wholesale" | "Retail" })
-                        }
+                      <<Select
+  value={form.channel}
+  onValueChange={(v) =>
+    setForm({ ...form, channel: v as "Wholesale" | "Retail" })
+  }
+>
                       >
                         <SelectTrigger>
                           <SelectValue />
