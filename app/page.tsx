@@ -16,6 +16,7 @@ import {
   PieChart,
   Pie,
   Cell,
+  Line,
 } from "recharts";
 import {
   TrendingUp,
@@ -160,8 +161,12 @@ function ChannelCard({ row }: any) {
         <div className="flex justify-between">
           <div>
             <p className="text-sm text-slate-500">{row.channel}</p>
-            <p className="text-xl font-semibold mt-2">{currencyFmt.format(row.revenue)}</p>
-            <p className="text-xs text-slate-400">{numberFmt.format(row.orders)} orders</p>
+            <p className="text-xl font-semibold mt-2">
+              {currencyFmt.format(row.revenue)}
+            </p>
+            <p className="text-xs text-slate-400">
+              {numberFmt.format(row.orders)} orders
+            </p>
           </div>
           <Badge>{pctFmt.format(row.fill)}</Badge>
         </div>
@@ -177,7 +182,8 @@ export default function Page() {
     "Wholesale",
     "Retail",
   ]);
-  const [selectedRange, setSelectedRange] = useState<(typeof dateRangeOptions)[number]["key"]>("mtd");
+  const [selectedRange, setSelectedRange] =
+    useState<(typeof dateRangeOptions)[number]["key"]>("mtd");
 
   const filteredRows = useMemo(
     () => channelRows.filter((row) => selectedChannels.includes(row.channel)),
@@ -202,17 +208,22 @@ export default function Page() {
   }, [selectedRange]);
 
   const combinedChartData = useMemo(() => {
-    const dates = channelChartData.Shopify.slice(-visibleLength).map((d) => d.date);
+    const dates = channelChartData.Shopify.slice(-visibleLength).map(
+      (d) => d.date
+    );
+
     return dates.map((date, index) => {
       const sourceIndex = channelChartData.Shopify.length - visibleLength + index;
       const base: Record<string, string | number> = { date };
       let previous = 0;
+
       selectedChannels.forEach((channel) => {
         const key = channel as keyof typeof channelChartData;
         const point = channelChartData[key][sourceIndex];
         base[channel] = point.current;
         previous += point.previous;
       });
+
       base.previous = previous;
       return base;
     });
@@ -234,12 +245,25 @@ export default function Page() {
 
   return (
     <div className="min-h-screen bg-slate-50 p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="mx-auto max-w-7xl space-y-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:justify-between lg:items-center">
           <div>
-            <h1 className="text-3xl font-semibold">Revenue dashboard</h1>
-            <p className="text-sm text-slate-500">Toggle channels, change ranges, and compare channel mix</p>
+            <div className="flex items-center gap-2">
+              <Badge className="rounded-full bg-blue-100 text-blue-700 hover:bg-blue-100">
+                Revenue OS
+              </Badge>
+              <Badge variant="secondary" className="rounded-full">
+                Auto-sync ready
+              </Badge>
+            </div>
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight">
+              Revenue reporting + goals dashboard
+            </h1>
+            <p className="mt-2 text-sm text-slate-500">
+              Toggle channels, change ranges, and compare channel mix.
+            </p>
           </div>
+
           <div className="flex items-center gap-3 flex-wrap">
             <div className="inline-flex rounded-xl bg-white p-1 shadow-sm border">
               {dateRangeOptions.map((option) => (
@@ -255,15 +279,31 @@ export default function Page() {
               ))}
             </div>
             <Button className="rounded-xl">
-              <Upload className="h-4 w-4 mr-2" /> Connect
+              <Upload className="h-4 w-4 mr-2" />
+              Connect data
             </Button>
           </div>
         </div>
 
         <div className="grid grid-cols-3 gap-4">
-          <KpiCard title="Net sales" value={currencyFmt.format(totalRevenue)} subtext="Selected channels" icon={TrendingUp} />
-          <KpiCard title="Orders" value={numberFmt.format(totalOrders)} subtext="Across selected channels" icon={ShoppingBag} />
-          <KpiCard title="AOV" value={currencyFmt.format(aov)} subtext="Blended average order value" icon={Store} />
+          <KpiCard
+            title="Net sales"
+            value={currencyFmt.format(totalRevenue)}
+            subtext="Selected channels"
+            icon={TrendingUp}
+          />
+          <KpiCard
+            title="Orders"
+            value={numberFmt.format(totalOrders)}
+            subtext="Across selected channels"
+            icon={ShoppingBag}
+          />
+          <KpiCard
+            title="AOV"
+            value={currencyFmt.format(aov)}
+            subtext="Blended average order value"
+            icon={Store}
+          />
         </div>
 
         <div className="grid grid-cols-[1.6fr_0.8fr] gap-6">
@@ -293,12 +333,34 @@ export default function Page() {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
                     <YAxis tickFormatter={(v: number) => `$${v / 1000}K`} />
-                    <Tooltip formatter={(v: any) => [currencyFmt.format(Number(v ?? 0)), ""]} />
+                    <Tooltip
+                      formatter={(v: any) => [
+                        currencyFmt.format(Number(v ?? 0)),
+                        "",
+                      ]}
+                    />
                     <Legend />
                     {selectedChannels.map((channel, index) => (
-                      <Bar key={channel} dataKey={channel} stackId="channels" fill={palette[index % palette.length]} radius={index === selectedChannels.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]} />
+                      <Bar
+                        key={channel}
+                        dataKey={channel}
+                        stackId="channels"
+                        fill={palette[index % palette.length]}
+                        radius={
+                          index === selectedChannels.length - 1
+                            ? [4, 4, 0, 0]
+                            : [0, 0, 0, 0]
+                        }
+                      />
                     ))}
-                    <Line type="monotone" dataKey="previous" name="Comparison period" stroke="#0f172a" strokeWidth={3} dot={false} />
+                    <Line
+                      type="monotone"
+                      dataKey="previous"
+                      name="Comparison period"
+                      stroke="#0f172a"
+                      strokeWidth={3}
+                      dot={false}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -313,12 +375,27 @@ export default function Page() {
               <div className="h-[420px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={mixData} dataKey="value" nameKey="name" innerRadius={80} outerRadius={130} paddingAngle={3}>
+                    <Pie
+                      data={mixData}
+                      dataKey="value"
+                      nameKey="name"
+                      innerRadius={80}
+                      outerRadius={130}
+                      paddingAngle={3}
+                    >
                       {mixData.map((entry, index) => (
-                        <Cell key={entry.name} fill={palette[index % palette.length]} />
+                        <Cell
+                          key={entry.name}
+                          fill={palette[index % palette.length]}
+                        />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(v: any) => [currencyFmt.format(Number(v ?? 0)), "Revenue"]} />
+                    <Tooltip
+                      formatter={(v: any) => [
+                        currencyFmt.format(Number(v ?? 0)),
+                        "Revenue",
+                      ]}
+                    />
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
@@ -338,9 +415,21 @@ export default function Page() {
             <CardTitle>API wiring next</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-slate-600">
-            <p><span className="font-medium text-slate-900">Shopify:</span> pull orders and sales by date from Admin GraphQL into a normalized revenue table.</p>
-            <p><span className="font-medium text-slate-900">Amazon:</span> pull order and sales data from SP-API into the same table keyed by date and channel.</p>
-            <p><span className="font-medium text-slate-900">Best architecture:</span> Next.js frontend + small backend sync job + Postgres/Supabase so the dashboard reads one clean dataset.</p>
+            <p>
+              <span className="font-medium text-slate-900">Shopify:</span> pull
+              orders and sales by date from Admin GraphQL into a normalized revenue
+              table.
+            </p>
+            <p>
+              <span className="font-medium text-slate-900">Amazon:</span> pull
+              order and sales data from SP-API into the same table keyed by date
+              and channel.
+            </p>
+            <p>
+              <span className="font-medium text-slate-900">Best architecture:</span>{" "}
+              Next.js frontend + small backend sync job + Postgres/Supabase so the
+              dashboard reads one clean dataset.
+            </p>
           </CardContent>
         </Card>
       </div>
