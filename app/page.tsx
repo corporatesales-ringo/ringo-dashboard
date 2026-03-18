@@ -64,29 +64,13 @@ const viewOptions = [
 ] as const;
 
 const quarterOptions = [
-  { key: "Q1", label: "Q1", months: ["Jan", "Feb", "Mar"] },
-  { key: "Q2", label: "Q2", months: ["Apr", "May", "Jun"] },
-  { key: "Q3", label: "Q3", months: ["Jul", "Aug", "Sep"] },
-  { key: "Q4", label: "Q4", months: ["Oct", "Nov", "Dec"] },
+  { key: "Q1", label: "Q1", months: [0, 1, 2] },
+  { key: "Q2", label: "Q2", months: [3, 4, 5] },
+  { key: "Q3", label: "Q3", months: [6, 7, 8] },
+  { key: "Q4", label: "Q4", months: [9, 10, 11] },
 ] as const;
 
 type ViewKey = (typeof viewOptions)[number]["key"];
-
-const goalMonths = [
-  "2026-01",
-  "2026-02",
-  "2026-03",
-  "2026-04",
-  "2026-05",
-  "2026-06",
-  "2026-07",
-  "2026-08",
-  "2026-09",
-  "2026-10",
-  "2026-11",
-  "2026-12",
-] as const;
-
 type ChannelName = "Shopify" | "Amazon" | "Corporate" | "Retail";
 type PageTab = "dashboard" | "reports";
 
@@ -105,8 +89,20 @@ type ManualEntry = {
   notes: string;
 };
 
-type DailyPoint = { date: string; current: number; previous: number };
-type MonthlyPoint = { month: string; current: number; previous: number };
+const goalMonths = [
+  "2026-01",
+  "2026-02",
+  "2026-03",
+  "2026-04",
+  "2026-05",
+  "2026-06",
+  "2026-07",
+  "2026-08",
+  "2026-09",
+  "2026-10",
+  "2026-11",
+  "2026-12",
+] as const;
 
 const initialGoalsByMonth: Record<string, GoalShape> = {
   "2026-01": { total: 42000, channels: { Shopify: 22000, Amazon: 12000, Corporate: 5000, Retail: 3000 } },
@@ -123,158 +119,11 @@ const initialGoalsByMonth: Record<string, GoalShape> = {
   "2026-12": { total: 78000, channels: { Shopify: 42000, Amazon: 21000, Corporate: 11000, Retail: 4000 } },
 };
 
-const dailyChartData = {
-  Shopify: [
-    { date: "Mar 1", current: 1050, previous: 2100 },
-    { date: "Mar 2", current: 1180, previous: 1950 },
-    { date: "Mar 3", current: 1240, previous: 2300 },
-    { date: "Mar 4", current: 1410, previous: 1880 },
-    { date: "Mar 5", current: 980, previous: 2900 },
-    { date: "Mar 6", current: 930, previous: 2050 },
-    { date: "Mar 7", current: 1520, previous: 2150 },
-    { date: "Mar 8", current: 1110, previous: 1840 },
-    { date: "Mar 9", current: 1360, previous: 2520 },
-    { date: "Mar 10", current: 1280, previous: 2140 },
-    { date: "Mar 11", current: 1730, previous: 2210 },
-    { date: "Mar 12", current: 870, previous: 1620 },
-    { date: "Mar 13", current: 1190, previous: 2250 },
-    { date: "Mar 14", current: 940, previous: 3180 },
-    { date: "Mar 15", current: 990, previous: 3720 },
-    { date: "Mar 16", current: 950, previous: 2660 },
-    { date: "Mar 17", current: 320, previous: 1710 },
-  ],
-  Amazon: [
-    { date: "Mar 1", current: 620, previous: 1150 },
-    { date: "Mar 2", current: 700, previous: 980 },
-    { date: "Mar 3", current: 730, previous: 1180 },
-    { date: "Mar 4", current: 810, previous: 890 },
-    { date: "Mar 5", current: 520, previous: 1420 },
-    { date: "Mar 6", current: 500, previous: 1110 },
-    { date: "Mar 7", current: 760, previous: 1240 },
-    { date: "Mar 8", current: 590, previous: 930 },
-    { date: "Mar 9", current: 680, previous: 1290 },
-    { date: "Mar 10", current: 630, previous: 1060 },
-    { date: "Mar 11", current: 930, previous: 1020 },
-    { date: "Mar 12", current: 410, previous: 810 },
-    { date: "Mar 13", current: 560, previous: 1080 },
-    { date: "Mar 14", current: 460, previous: 1650 },
-    { date: "Mar 15", current: 480, previous: 2080 },
-    { date: "Mar 16", current: 450, previous: 1470 },
-    { date: "Mar 17", current: 150, previous: 920 },
-  ],
-  Corporate: [
-    { date: "Mar 1", current: 180, previous: 360 },
-    { date: "Mar 2", current: 160, previous: 310 },
-    { date: "Mar 3", current: 150, previous: 330 },
-    { date: "Mar 4", current: 220, previous: 270 },
-    { date: "Mar 5", current: 140, previous: 420 },
-    { date: "Mar 6", current: 130, previous: 350 },
-    { date: "Mar 7", current: 240, previous: 380 },
-    { date: "Mar 8", current: 160, previous: 280 },
-    { date: "Mar 9", current: 210, previous: 410 },
-    { date: "Mar 10", current: 190, previous: 340 },
-    { date: "Mar 11", current: 430, previous: 170 },
-    { date: "Mar 12", current: 120, previous: 150 },
-    { date: "Mar 13", current: 180, previous: 300 },
-    { date: "Mar 14", current: 110, previous: 520 },
-    { date: "Mar 15", current: 100, previous: 760 },
-    { date: "Mar 16", current: 120, previous: 620 },
-    { date: "Mar 17", current: 30, previous: 350 },
-  ],
-  Retail: [
-    { date: "Mar 1", current: 100, previous: 190 },
-    { date: "Mar 2", current: 80, previous: 110 },
-    { date: "Mar 3", current: 80, previous: 240 },
-    { date: "Mar 4", current: 85, previous: 140 },
-    { date: "Mar 5", current: 70, previous: 285 },
-    { date: "Mar 6", current: 90, previous: 370 },
-    { date: "Mar 7", current: 140, previous: 280 },
-    { date: "Mar 8", current: 150, previous: 190 },
-    { date: "Mar 9", current: 170, previous: 200 },
-    { date: "Mar 10", current: 110, previous: 140 },
-    { date: "Mar 11", current: 330, previous: 60 },
-    { date: "Mar 12", current: 110, previous: 160 },
-    { date: "Mar 13", current: 80, previous: 310 },
-    { date: "Mar 14", current: 70, previous: 510 },
-    { date: "Mar 15", current: 60, previous: 530 },
-    { date: "Mar 16", current: 40, previous: 430 },
-    { date: "Mar 17", current: 20, previous: 230 },
-  ],
-} as const satisfies Record<ChannelName, ReadonlyArray<DailyPoint>>;
-
-const monthlyChartData = {
-  Shopify: [
-    { month: "Jan", current: 22000, previous: 19000 },
-    { month: "Feb", current: 24500, previous: 20500 },
-    { month: "Mar", current: 26000, previous: 22000 },
-    { month: "Apr", current: 28200, previous: 23500 },
-    { month: "May", current: 30400, previous: 24800 },
-    { month: "Jun", current: 31800, previous: 25900 },
-    { month: "Jul", current: 32600, previous: 26800 },
-    { month: "Aug", current: 34100, previous: 27700 },
-    { month: "Sep", current: 33300, previous: 27100 },
-    { month: "Oct", current: 35800, previous: 28600 },
-    { month: "Nov", current: 38200, previous: 30000 },
-    { month: "Dec", current: 42500, previous: 33800 },
-  ],
-  Amazon: [
-    { month: "Jan", current: 11800, previous: 10200 },
-    { month: "Feb", current: 13200, previous: 11100 },
-    { month: "Mar", current: 14500, previous: 12100 },
-    { month: "Apr", current: 15100, previous: 12900 },
-    { month: "May", current: 16400, previous: 13600 },
-    { month: "Jun", current: 17600, previous: 14400 },
-    { month: "Jul", current: 16900, previous: 13800 },
-    { month: "Aug", current: 18100, previous: 14900 },
-    { month: "Sep", current: 17300, previous: 14500 },
-    { month: "Oct", current: 18600, previous: 15200 },
-    { month: "Nov", current: 19800, previous: 16100 },
-    { month: "Dec", current: 21200, previous: 17600 },
-  ],
-  Corporate: [
-    { month: "Jan", current: 5200, previous: 4600 },
-    { month: "Feb", current: 5800, previous: 4900 },
-    { month: "Mar", current: 6500, previous: 5300 },
-    { month: "Apr", current: 7100, previous: 5600 },
-    { month: "May", current: 7900, previous: 6100 },
-    { month: "Jun", current: 8600, previous: 6700 },
-    { month: "Jul", current: 8200, previous: 6400 },
-    { month: "Aug", current: 8800, previous: 7000 },
-    { month: "Sep", current: 9100, previous: 7200 },
-    { month: "Oct", current: 9600, previous: 7600 },
-    { month: "Nov", current: 10200, previous: 8100 },
-    { month: "Dec", current: 11000, previous: 8900 },
-  ],
-  Retail: [
-    { month: "Jan", current: 3000, previous: 2500 },
-    { month: "Feb", current: 3100, previous: 2600 },
-    { month: "Mar", current: 3000, previous: 2700 },
-    { month: "Apr", current: 3500, previous: 2900 },
-    { month: "May", current: 3600, previous: 3000 },
-    { month: "Jun", current: 3900, previous: 3200 },
-    { month: "Jul", current: 3800, previous: 3150 },
-    { month: "Aug", current: 4050, previous: 3300 },
-    { month: "Sep", current: 3950, previous: 3250 },
-    { month: "Oct", current: 4100, previous: 3400 },
-    { month: "Nov", current: 4300, previous: 3550 },
-    { month: "Dec", current: 4500, previous: 3700 },
-  ],
-} as const satisfies Record<ChannelName, ReadonlyArray<MonthlyPoint>>;
-
-const baseChannelRows = [
-  { channel: "Shopify" as const, revenue: 18420, orders: 302, units: 364, aov: 61, fill: 0.53, icon: Store },
-  { channel: "Amazon" as const, revenue: 10895, orders: 189, units: 248, aov: 58, fill: 0.31, icon: ShoppingBag },
-  { channel: "Corporate" as const, revenue: 3900, orders: 6, units: 180, aov: 650, fill: 0.11, icon: Building2 },
-  { channel: "Retail" as const, revenue: 1337, orders: 3, units: 64, aov: 446, fill: 0.05, icon: Truck },
-] as const;
-
-const initialManualEntries: ManualEntry[] = [
-  { id: 1, date: "2026-03-06", month: "2026-03", channel: "Corporate", account: "Foxtrot", amount: 1200, notes: "Spring reorder" },
-  { id: 2, date: "2026-03-11", month: "2026-03", channel: "Retail", account: "Pop-up Event", amount: 857, notes: "Weekend sell-through" },
-  { id: 3, date: "2026-03-14", month: "2026-03", channel: "Corporate", account: "Club Account", amount: 1800, notes: "Case pack PO" },
-  { id: 4, date: "2026-03-15", month: "2026-03", channel: "Corporate", account: "Foxtrot", amount: 950, notes: "Fill-in order" },
-  { id: 5, date: "2026-03-12", month: "2026-03", channel: "Retail", account: "Door County Shop", amount: 640, notes: "Store replenishment" },
-  { id: 6, date: "2026-03-09", month: "2026-03", channel: "Corporate", account: "Nordstrom Local", amount: 2200, notes: "Launch order" },
+const channelMeta = [
+  { channel: "Shopify" as const, icon: Store },
+  { channel: "Amazon" as const, icon: ShoppingBag },
+  { channel: "Corporate" as const, icon: Building2 },
+  { channel: "Retail" as const, icon: Truck },
 ];
 
 function KpiCard({
@@ -290,11 +139,11 @@ function KpiCard({
 }) {
   return (
     <Card className="rounded-2xl border-0 shadow-sm">
-      <CardContent className="p-5 flex justify-between">
+      <CardContent className="flex justify-between p-5">
         <div>
           <p className="text-sm text-slate-500">{title}</p>
-          <p className="text-2xl font-semibold mt-2">{value}</p>
-          <p className="text-xs text-slate-400 mt-1">{subtext}</p>
+          <p className="mt-2 text-2xl font-semibold">{value}</p>
+          <p className="mt-1 text-xs text-slate-400">{subtext}</p>
         </div>
         <Icon className="h-5 w-5 text-slate-600" />
       </CardContent>
@@ -307,13 +156,20 @@ function ChannelCard({
   onClick,
   active,
 }: {
-  row: (typeof baseChannelRows)[number] & { revenue: number; aov: number };
+  row: {
+    channel: ChannelName;
+    revenue: number;
+    orders: number;
+    aov: number;
+    fill: number;
+    icon: React.ComponentType<{ className?: string }>;
+  };
   onClick: () => void;
   active: boolean;
 }) {
   return (
     <Card
-      className={`rounded-2xl border-0 shadow-sm cursor-pointer transition hover:shadow-md ${
+      className={`cursor-pointer rounded-2xl border-0 shadow-sm transition hover:shadow-md ${
         active ? "ring-2 ring-slate-900" : ""
       }`}
       onClick={onClick}
@@ -322,7 +178,7 @@ function ChannelCard({
         <div className="flex justify-between">
           <div>
             <p className="text-sm text-slate-500">{row.channel}</p>
-            <p className="text-xl font-semibold mt-2">
+            <p className="mt-2 text-xl font-semibold">
               {currencyFmt.format(row.revenue)}
             </p>
             <p className="text-xs text-slate-400">
@@ -334,6 +190,106 @@ function ChannelCard({
       </CardContent>
     </Card>
   );
+}
+
+function startOfDay(date: Date) {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function addDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function startOfMonth(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function addMonths(date: Date, months: number) {
+  return new Date(date.getFullYear(), date.getMonth() + months, 1);
+}
+
+function parseIsoDate(dateStr: string) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+}
+
+function formatMonth(date: Date) {
+  return date.toLocaleString("en-US", { month: "short" });
+}
+
+function formatDayLabel(date: Date) {
+  return date.toLocaleString("en-US", { month: "short", day: "numeric" });
+}
+
+function normalizeAccount(value: string) {
+  const cleaned = value.trim();
+  const lower = cleaned.toLowerCase();
+
+  if (
+    [
+      "w good co",
+      "w.good/co",
+      "w/good co",
+      "w good.co",
+      "w/good,co",
+      "w/good.co",
+      "w.good co",
+      "w/good/co",
+      "w.good/co ",
+    ].includes(lower)
+  ) {
+    return "W Good Co";
+  }
+
+  if (lower === "swag,com") return "Swag.com";
+
+  return cleaned;
+}
+
+function normalizeChannel(value: string): ChannelName {
+  const cleaned = value.trim().toLowerCase();
+
+  if (cleaned.includes("shop")) return "Shopify";
+  if (cleaned.includes("amazon")) return "Amazon";
+  if (cleaned.includes("retail")) return "Retail";
+  if (cleaned.includes("corp")) return "Corporate";
+  if (cleaned.includes("wholesale")) return "Corporate";
+  if (cleaned.includes("custom")) return "Corporate";
+
+  return "Corporate";
+}
+
+function parseAmount(value: string) {
+  const parsed = Number(String(value).replace(/[$,\s]/g, ""));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function parseDate(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+
+  const slashMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/);
+  if (slashMatch) {
+    let [, m, d, y] = slashMatch;
+    const year = y ? (y.length === 2 ? `20${y}` : y) : "2026";
+    return `${year}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  }
+
+  const parsed = new Date(trimmed);
+  if (!Number.isNaN(parsed.getTime())) {
+    const yyyy = parsed.getFullYear();
+    const mm = String(parsed.getMonth() + 1).padStart(2, "0");
+    const dd = String(parsed.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  return "";
 }
 
 export default function Page() {
@@ -348,19 +304,16 @@ export default function Page() {
   const [selectedQuarter, setSelectedQuarter] =
     useState<(typeof quarterOptions)[number]["key"]>("Q1");
   const [customStart, setCustomStart] = useState("2026-03-01");
-  const [customEnd, setCustomEnd] = useState("2026-03-17");
+  const [customEnd, setCustomEnd] = useState("2026-03-31");
   const [showGoals, setShowGoals] = useState(false);
-  const [selectedGoalMonth, setSelectedGoalMonth] =
-    useState<string>("2026-03");
+  const [selectedGoalMonth, setSelectedGoalMonth] = useState<string>("2026-03");
   const [goalsByMonth, setGoalsByMonth] =
     useState<Record<string, GoalShape>>(initialGoalsByMonth);
   const [selectedDetailChannel, setSelectedDetailChannel] =
     useState<ChannelName | null>(null);
-  const [manualEntries, setManualEntries] =
-    useState<ManualEntry[]>(initialManualEntries);
-  const [newManualEntry, setNewManualEntry] = useState<
-    Omit<ManualEntry, "id">
-  >({
+
+  const [manualEntries, setManualEntries] = useState<ManualEntry[]>([]);
+  const [newManualEntry, setNewManualEntry] = useState<Omit<ManualEntry, "id">>({
     date: "2026-03-18",
     month: "2026-03",
     channel: "Corporate",
@@ -368,125 +321,235 @@ export default function Page() {
     amount: 0,
     notes: "",
   });
+
   const [reportSearch, setReportSearch] = useState("");
   const [reportChannel, setReportChannel] =
     useState<"All" | ChannelName>("All");
-  const [reportStart, setReportStart] = useState("2026-03-01");
-  const [reportEnd, setReportEnd] = useState("2026-03-31");
+  const [reportStart, setReportStart] = useState("");
+  const [reportEnd, setReportEnd] = useState("");
 
   const [importText, setImportText] = useState("");
   const [importMessage, setImportMessage] = useState("");
 
-  const manualRevenueByChannel = useMemo(() => {
-    return manualEntries.reduce<Record<ChannelName, number>>(
-      (acc, entry) => {
-        acc[entry.channel] += entry.amount;
-        return acc;
-      },
-      { Shopify: 0, Amazon: 0, Corporate: 0, Retail: 0 }
-    );
+  const latestEntryDate = useMemo(() => {
+    if (!manualEntries.length) return new Date(2026, 2, 31);
+    return manualEntries.reduce((latest, entry) => {
+      const current = parseIsoDate(entry.date);
+      return current > latest ? current : latest;
+    }, parseIsoDate(manualEntries[0].date));
   }, [manualEntries]);
-
-  const channelRows = useMemo(() => {
-    return baseChannelRows.map((row) => {
-      const revenue = row.revenue + manualRevenueByChannel[row.channel];
-      const aov = row.orders ? revenue / row.orders : 0;
-      return {
-        ...row,
-        revenue,
-        aov,
-      };
-    });
-  }, [manualRevenueByChannel]);
-
-  const filteredRows = useMemo(
-    () => channelRows.filter((row) => selectedChannels.includes(row.channel)),
-    [channelRows, selectedChannels]
-  );
-
-  const totalRevenue = useMemo(
-    () => filteredRows.reduce((s, r) => s + r.revenue, 0),
-    [filteredRows]
-  );
-  const totalOrders = useMemo(
-    () => filteredRows.reduce((s, r) => s + r.orders, 0),
-    [filteredRows]
-  );
-  const aov = totalOrders ? totalRevenue / totalOrders : 0;
-  const activeGoal = goalsByMonth[selectedGoalMonth]?.total ?? 0;
-  const goalGap = Math.max(activeGoal - totalRevenue, 0);
-  const goalAttainment = activeGoal ? totalRevenue / activeGoal : 0;
 
   const chartMode = useMemo(() => {
     const selected = viewOptions.find((option) => option.key === selectedView);
     return selected?.mode ?? "daily";
   }, [selectedView]);
 
-  const customVisibleLength = useMemo(() => {
-    const start = new Date(customStart);
-    const end = new Date(customEnd);
-    const diff = Math.max(
-      1,
-      Math.round(
-        (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
-      ) + 1
-    );
-    return Math.min(diff, dailyChartData.Shopify.length);
-  }, [customStart, customEnd]);
-
-  const combinedChartData = useMemo(() => {
+  const rangeInfo = useMemo(() => {
     if (chartMode === "monthly") {
-      let monthSubset = monthlyChartData.Shopify;
-      if (selectedView === "quarterly") {
-        const selected = quarterOptions.find((q) => q.key === selectedQuarter);
-        monthSubset = monthlyChartData.Shopify.filter((point) =>
-          selected?.months.includes(point.month)
-        );
+      const year = Number(selectedGoalMonth.slice(0, 4));
+      if (selectedView === "annual") {
+        const start = new Date(year, 0, 1);
+        const end = new Date(year, 11, 1);
+        return {
+          mode: "monthly" as const,
+          currentStart: start,
+          currentEnd: end,
+          previousStart: new Date(year - 1, 0, 1),
+          bucketCount: 12,
+        };
       }
-      return monthSubset.map((point) => {
-        const sourceIndex = monthlyChartData.Shopify.findIndex(
-          (m) => m.month === point.month
-        );
-        const base: Record<string, string | number> = { label: point.month };
-        let previous = 0;
-        selectedChannels.forEach((channel) => {
-          const channelPoint = monthlyChartData[channel][sourceIndex];
-          base[channel] = channelPoint.current;
-          previous += channelPoint.previous;
-        });
-        base.previous = previous;
-        return base;
-      });
+
+      const quarter = quarterOptions.find((q) => q.key === selectedQuarter) ?? quarterOptions[0];
+      const start = new Date(year, quarter.months[0], 1);
+      return {
+        mode: "monthly" as const,
+        currentStart: start,
+        currentEnd: new Date(year, quarter.months[2], 1),
+        previousStart: addMonths(start, -3),
+        bucketCount: 3,
+      };
     }
 
-    const visibleLength =
-      selectedView === "daily"
-        ? 7
-        : selectedView === "weekly"
-        ? 14
-        : selectedView === "custom"
-        ? customVisibleLength
-        : 17;
+    if (selectedView === "custom") {
+      const start = startOfDay(new Date(customStart));
+      const end = startOfDay(new Date(customEnd));
+      const bucketCount = Math.max(
+        1,
+        Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
+      );
+      return {
+        mode: "daily" as const,
+        currentStart: start,
+        currentEnd: end,
+        previousStart: addDays(start, -bucketCount),
+        bucketCount,
+      };
+    }
 
-    const dates = dailyChartData.Shopify.slice(-visibleLength).map((d) => d.date);
+    const bucketCount =
+      selectedView === "daily" ? 7 : selectedView === "weekly" ? 14 : 30;
+    const end = startOfDay(latestEntryDate);
+    const start = addDays(end, -(bucketCount - 1));
 
-    return dates.map((date, index) => {
-      const sourceIndex = dailyChartData.Shopify.length - visibleLength + index;
-      const base: Record<string, string | number> = { label: date };
-      let previous = 0;
-      selectedChannels.forEach((channel) => {
-        const point = dailyChartData[channel][sourceIndex];
-        const manualBump = channel === "Corporate" || channel === "Retail" ? 35 : 0;
-        base[channel] = point.current + manualBump;
-        previous += point.previous;
-      });
-      base.previous = previous;
-      return base;
+    return {
+      mode: "daily" as const,
+      currentStart: start,
+      currentEnd: end,
+      previousStart: addDays(start, -bucketCount),
+      bucketCount,
+    };
+  }, [
+    chartMode,
+    selectedView,
+    selectedQuarter,
+    selectedGoalMonth,
+    customStart,
+    customEnd,
+    latestEntryDate,
+  ]);
+
+  const currentPeriodEntries = useMemo(() => {
+    return manualEntries.filter((entry) => {
+      if (!selectedChannels.includes(entry.channel)) return false;
+      const date = parseIsoDate(entry.date);
+
+      if (rangeInfo.mode === "daily") {
+        return (
+          date >= rangeInfo.currentStart &&
+          date <= addDays(rangeInfo.currentEnd, 1)
+        );
+      }
+
+      const monthDate = startOfMonth(date);
+      return (
+        monthDate >= rangeInfo.currentStart &&
+        monthDate <= rangeInfo.currentEnd
+      );
     });
-  }, [chartMode, selectedChannels, selectedView, selectedQuarter, customVisibleLength]);
+  }, [manualEntries, selectedChannels, rangeInfo]);
+
+  const channelRows = useMemo(() => {
+    const revenueByChannel: Record<ChannelName, number> = {
+      Shopify: 0,
+      Amazon: 0,
+      Corporate: 0,
+      Retail: 0,
+    };
+    const ordersByChannel: Record<ChannelName, number> = {
+      Shopify: 0,
+      Amazon: 0,
+      Corporate: 0,
+      Retail: 0,
+    };
+
+    currentPeriodEntries.forEach((entry) => {
+      revenueByChannel[entry.channel] += entry.amount;
+      ordersByChannel[entry.channel] += 1;
+    });
+
+    const totalRevenue = Object.values(revenueByChannel).reduce((sum, v) => sum + v, 0);
+
+    return channelMeta.map((row) => {
+      const revenue = revenueByChannel[row.channel];
+      const orders = ordersByChannel[row.channel];
+      return {
+        ...row,
+        revenue,
+        orders,
+        aov: orders ? revenue / orders : 0,
+        fill: totalRevenue ? revenue / totalRevenue : 0,
+      };
+    });
+  }, [currentPeriodEntries]);
+
+  const filteredRows = useMemo(
+    () => channelRows.filter((row) => selectedChannels.includes(row.channel)),
+    [channelRows, selectedChannels]
+  );
+
+  const totalRevenue = filteredRows.reduce((s, r) => s + r.revenue, 0);
+  const totalOrders = filteredRows.reduce((s, r) => s + r.orders, 0);
+  const aov = totalOrders ? totalRevenue / totalOrders : 0;
+
+  const selectedGoalRevenue = useMemo(() => {
+    return manualEntries
+      .filter(
+        (entry) =>
+          entry.month === selectedGoalMonth &&
+          selectedChannels.includes(entry.channel)
+      )
+      .reduce((sum, entry) => sum + entry.amount, 0);
+  }, [manualEntries, selectedGoalMonth, selectedChannels]);
+
+  const activeGoal = goalsByMonth[selectedGoalMonth]?.total ?? 0;
+  const goalGap = Math.max(activeGoal - selectedGoalRevenue, 0);
+  const goalAttainment = activeGoal ? selectedGoalRevenue / activeGoal : 0;
+
+  const combinedChartData = useMemo(() => {
+    const rows: Array<Record<string, string | number>> = [];
+
+    for (let i = 0; i < rangeInfo.bucketCount; i++) {
+      const currentBucketStart =
+        rangeInfo.mode === "daily"
+          ? addDays(rangeInfo.currentStart, i)
+          : addMonths(rangeInfo.currentStart, i);
+
+      const currentBucketEnd =
+        rangeInfo.mode === "daily"
+          ? addDays(currentBucketStart, 1)
+          : addMonths(currentBucketStart, 1);
+
+      const previousBucketStart =
+        rangeInfo.mode === "daily"
+          ? addDays(rangeInfo.previousStart, i)
+          : addMonths(rangeInfo.previousStart, i);
+
+      const previousBucketEnd =
+        rangeInfo.mode === "daily"
+          ? addDays(previousBucketStart, 1)
+          : addMonths(previousBucketStart, 1);
+
+      const label =
+        rangeInfo.mode === "daily"
+          ? formatDayLabel(currentBucketStart)
+          : formatMonth(currentBucketStart);
+
+      const row: Record<string, string | number> = { label };
+      let previous = 0;
+
+      selectedChannels.forEach((channel) => {
+        const currentRevenue = manualEntries
+          .filter((entry) => entry.channel === channel)
+          .filter((entry) => {
+            const date = parseIsoDate(entry.date);
+            return date >= currentBucketStart && date < currentBucketEnd;
+          })
+          .reduce((sum, entry) => sum + entry.amount, 0);
+
+        const previousRevenue = manualEntries
+          .filter((entry) => entry.channel === channel)
+          .filter((entry) => {
+            const date = parseIsoDate(entry.date);
+            return date >= previousBucketStart && date < previousBucketEnd;
+          })
+          .reduce((sum, entry) => sum + entry.amount, 0);
+
+        row[channel] = currentRevenue;
+        previous += previousRevenue;
+      });
+
+      row.previous = previous;
+      rows.push(row);
+    }
+
+    return rows;
+  }, [manualEntries, selectedChannels, rangeInfo]);
 
   const mixData = useMemo(
-    () => filteredRows.map((row) => ({ name: row.channel, value: row.revenue })),
+    () =>
+      filteredRows
+        .filter((row) => row.revenue > 0)
+        .map((row) => ({ name: row.channel, value: row.revenue })),
     [filteredRows]
   );
 
@@ -499,50 +562,76 @@ export default function Page() {
     ? goalsByMonth[selectedGoalMonth]?.channels[selectedDetailChannel] ?? 0
     : 0;
 
+  const selectedDetailRevenueForGoalMonth = useMemo(() => {
+    if (!selectedDetailChannel) return 0;
+    return manualEntries
+      .filter(
+        (entry) =>
+          entry.channel === selectedDetailChannel &&
+          entry.month === selectedGoalMonth
+      )
+      .reduce((sum, entry) => sum + entry.amount, 0);
+  }, [manualEntries, selectedDetailChannel, selectedGoalMonth]);
+
   const channelAttainment =
-    selectedDetailRow && channelGoal
-      ? selectedDetailRow.revenue / channelGoal
+    selectedDetailChannel && channelGoal
+      ? selectedDetailRevenueForGoalMonth / channelGoal
       : 0;
 
-  const channelGap = selectedDetailRow
-    ? Math.max(channelGoal - selectedDetailRow.revenue, 0)
-    : 0;
+  const channelGap = Math.max(channelGoal - selectedDetailRevenueForGoalMonth, 0);
 
   const detailChartData = useMemo(() => {
-    if (!selectedDetailChannel) return [] as Array<Record<string, string | number>>;
+    if (!selectedDetailChannel) return [];
 
-    if (chartMode === "monthly") {
-      let subset = monthlyChartData[selectedDetailChannel];
-      if (selectedView === "quarterly") {
-        const selected = quarterOptions.find((q) => q.key === selectedQuarter);
-        subset = monthlyChartData[selectedDetailChannel].filter((point) =>
-          selected?.months.includes(point.month)
-        );
-      }
-      return subset.map((point) => ({
-        label: point.month,
-        current: point.current,
-        previous: point.previous,
-      }));
+    const rows: Array<Record<string, string | number>> = [];
+
+    for (let i = 0; i < rangeInfo.bucketCount; i++) {
+      const currentBucketStart =
+        rangeInfo.mode === "daily"
+          ? addDays(rangeInfo.currentStart, i)
+          : addMonths(rangeInfo.currentStart, i);
+
+      const currentBucketEnd =
+        rangeInfo.mode === "daily"
+          ? addDays(currentBucketStart, 1)
+          : addMonths(currentBucketStart, 1);
+
+      const previousBucketStart =
+        rangeInfo.mode === "daily"
+          ? addDays(rangeInfo.previousStart, i)
+          : addMonths(rangeInfo.previousStart, i);
+
+      const previousBucketEnd =
+        rangeInfo.mode === "daily"
+          ? addDays(previousBucketStart, 1)
+          : addMonths(previousBucketStart, 1);
+
+      const label =
+        rangeInfo.mode === "daily"
+          ? formatDayLabel(currentBucketStart)
+          : formatMonth(currentBucketStart);
+
+      const current = manualEntries
+        .filter((entry) => entry.channel === selectedDetailChannel)
+        .filter((entry) => {
+          const date = parseIsoDate(entry.date);
+          return date >= currentBucketStart && date < currentBucketEnd;
+        })
+        .reduce((sum, entry) => sum + entry.amount, 0);
+
+      const previous = manualEntries
+        .filter((entry) => entry.channel === selectedDetailChannel)
+        .filter((entry) => {
+          const date = parseIsoDate(entry.date);
+          return date >= previousBucketStart && date < previousBucketEnd;
+        })
+        .reduce((sum, entry) => sum + entry.amount, 0);
+
+      rows.push({ label, current, previous });
     }
 
-    const visibleLength =
-      selectedView === "daily"
-        ? 7
-        : selectedView === "weekly"
-        ? 14
-        : selectedView === "custom"
-        ? customVisibleLength
-        : 17;
-
-    return dailyChartData[selectedDetailChannel]
-      .slice(-visibleLength)
-      .map((point) => ({
-        label: point.date,
-        current: point.current,
-        previous: point.previous,
-      }));
-  }, [selectedDetailChannel, chartMode, selectedView, selectedQuarter, customVisibleLength]);
+    return rows;
+  }, [manualEntries, selectedDetailChannel, rangeInfo]);
 
   const reportRows = useMemo(() => {
     return manualEntries
@@ -585,30 +674,28 @@ export default function Page() {
         channels: { Shopify: 0, Amazon: 0, Corporate: 0, Retail: 0 },
       };
       if (field === "total") {
-        return {
-          ...prev,
-          [month]: { ...current, total: parsed },
-        };
+        return { ...prev, [month]: { ...current, total: parsed } };
       }
       return {
         ...prev,
         [month]: {
           ...current,
-          channels: {
-            ...current.channels,
-            [field]: parsed,
-          },
+          channels: { ...current.channels, [field]: parsed },
         },
       };
     });
   };
 
   const addManualEntry = () => {
-    if (!newManualEntry.account || !newManualEntry.amount) return;
+    if (!newManualEntry.account || !newManualEntry.amount || !newManualEntry.date) return;
+
+    const month = newManualEntry.date.slice(0, 7) || newManualEntry.month;
+
     setManualEntries((prev) => [
       ...prev,
-      { ...newManualEntry, id: Date.now() },
+      { ...newManualEntry, month, id: Date.now() },
     ]);
+
     setNewManualEntry({
       date: "2026-03-18",
       month: selectedGoalMonth,
@@ -619,45 +706,6 @@ export default function Page() {
     });
   };
 
-  const parseAmount = (value: string) => {
-    return Number(value.replace(/[$,]/g, ""));
-  };
-
-  const parseDate = (value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) return "2025-01-01";
-
-    const [m, d] = trimmed.split("/");
-    if (!m || !d) return "2025-01-01";
-
-    return `2025-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
-  };
-
-  const normalizeAccount = (value: string) => {
-    const cleaned = value.trim();
-    const lower = cleaned.toLowerCase();
-
-    if (
-      [
-        "w good co",
-        "w.good/co",
-        "w/good co",
-        "w good.co",
-        "w/good,co",
-        "w/good.co",
-        "w.good co",
-        "w/good/co",
-        "w.good/co ",
-      ].includes(lower)
-    ) {
-      return "W Good Co";
-    }
-
-    if (lower === "swag,com") return "Swag.com";
-
-    return cleaned;
-  };
-
   const importData = () => {
     const lines = importText
       .split("\n")
@@ -666,25 +714,54 @@ export default function Page() {
 
     const newEntries: ManualEntry[] = [];
 
-    for (const line of lines) {
-      const parts = line.split("\t").filter(Boolean);
-      if (parts.length < 2) continue;
+    const splitFlexible = (line: string) => {
+      if (line.includes("\t")) {
+        return line.split("\t").map((p) => p.trim()).filter(Boolean);
+      }
+      return line.split(",").map((p) => p.trim()).filter(Boolean);
+    };
 
-      const account = normalizeAccount(parts[0] ?? "");
-      const maybeDate = parts.length >= 3 ? parts[1] : "";
-      const maybeAmount = parts[parts.length - 1] ?? "";
+    const firstLine = lines[0]?.toLowerCase() || "";
+    const hasHeader =
+      firstLine.includes("date") ||
+      firstLine.includes("channel") ||
+      firstLine.includes("customer") ||
+      firstLine.includes("revenue") ||
+      firstLine.includes("account");
 
-      const amount = parseAmount(maybeAmount);
-      if (!account || !Number.isFinite(amount)) continue;
+    const workingLines = hasHeader ? lines.slice(1) : lines;
 
-      const date = parseDate(maybeDate);
-      const month = date.slice(0, 7);
+    for (const line of workingLines) {
+      const parts = splitFlexible(line);
+      if (parts.length < 3) continue;
+
+      let account = "";
+      let channel: ChannelName = "Corporate";
+      let date = "";
+      let amount = 0;
+
+      if (parts.length >= 4 && (parts[0].includes("/") || parts[0].includes("-"))) {
+        date = parseDate(parts[0]);
+        channel = normalizeChannel(parts[1]);
+        account = normalizeAccount(parts[2]);
+        amount = parseAmount(parts[3]);
+      } else {
+        account = normalizeAccount(parts[0]);
+        date = parseDate(parts[1]);
+        amount = parseAmount(parts[parts.length - 1]);
+
+        if (parts.length >= 4) {
+          channel = normalizeChannel(parts[2]);
+        }
+      }
+
+      if (!account || !date || !amount) continue;
 
       newEntries.push({
         id: Date.now() + newEntries.length,
         date,
-        month,
-        channel: "Corporate",
+        month: date.slice(0, 7),
+        channel,
         account,
         amount,
         notes: "Imported",
@@ -703,8 +780,8 @@ export default function Page() {
 
   return (
     <div className="min-h-screen bg-slate-50 p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:justify-between lg:items-center">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h1 className="text-3xl font-semibold">Revenue dashboard</h1>
             <p className="text-sm text-slate-500">
@@ -712,14 +789,14 @@ export default function Page() {
               track monthly goals
             </p>
           </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="inline-flex rounded-xl bg-white p-1 shadow-sm border">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="inline-flex rounded-xl border bg-white p-1 shadow-sm">
               <Button
                 variant={activeTab === "dashboard" ? "default" : "ghost"}
                 className="rounded-lg"
                 onClick={() => setActiveTab("dashboard")}
               >
-                <LayoutDashboard className="h-4 w-4 mr-2" />
+                <LayoutDashboard className="mr-2 h-4 w-4" />
                 Dashboard
               </Button>
               <Button
@@ -727,12 +804,12 @@ export default function Page() {
                 className="rounded-lg"
                 onClick={() => setActiveTab("reports")}
               >
-                <FileBarChart2 className="h-4 w-4 mr-2" />
+                <FileBarChart2 className="mr-2 h-4 w-4" />
                 Reports
               </Button>
             </div>
             <Button className="rounded-xl">
-              <Upload className="h-4 w-4 mr-2" />
+              <Upload className="mr-2 h-4 w-4" />
               Connect
             </Button>
           </div>
@@ -763,7 +840,7 @@ export default function Page() {
                     }
                   >
                     <option value="All">All channels</option>
-                    {baseChannelRows.map((row) => (
+                    {channelMeta.map((row) => (
                       <option key={row.channel} value={row.channel}>
                         {row.channel}
                       </option>
@@ -839,9 +916,7 @@ export default function Page() {
                         </div>
                         <div>{row.channel}</div>
                         <div>{currencyFmt.format(row.amount)}</div>
-                        <div className="text-slate-500">
-                          {row.notes || "—"}
-                        </div>
+                        <div className="text-slate-500">{row.notes || "—"}</div>
                       </div>
                     ))
                   )}
@@ -873,7 +948,7 @@ export default function Page() {
             ) : null}
 
             {selectedView === "custom" ? (
-              <div className="flex items-center gap-3 flex-wrap rounded-2xl border bg-white p-4 shadow-sm">
+              <div className="flex flex-wrap items-center gap-3 rounded-2xl border bg-white p-4 shadow-sm">
                 <span className="text-sm text-slate-500">Custom date range</span>
                 <Input
                   type="date"
@@ -890,7 +965,7 @@ export default function Page() {
               </div>
             ) : null}
 
-            <div className="inline-flex rounded-xl bg-white p-1 shadow-sm border flex-wrap">
+            <div className="inline-flex flex-wrap rounded-xl border bg-white p-1 shadow-sm">
               {viewOptions.map((option) => (
                 <Button
                   key={option.key}
@@ -898,7 +973,7 @@ export default function Page() {
                   className="rounded-lg"
                   onClick={() => setSelectedView(option.key)}
                 >
-                  <CalendarRange className="h-4 w-4 mr-2" />
+                  <CalendarRange className="mr-2 h-4 w-4" />
                   {option.label}
                 </Button>
               ))}
@@ -1011,7 +1086,7 @@ export default function Page() {
                     <div className="rounded-2xl bg-slate-50 p-4">
                       <p className="text-sm text-slate-500">Revenue vs goal</p>
                       <p className="mt-2 text-2xl font-semibold">
-                        {currencyFmt.format(totalRevenue)} /{" "}
+                        {currencyFmt.format(selectedGoalRevenue)} /{" "}
                         {currencyFmt.format(activeGoal)}
                       </p>
                       <div className="mt-3 h-3 overflow-hidden rounded-full bg-slate-200">
@@ -1039,11 +1114,7 @@ export default function Page() {
                         <Button
                           key={row.channel}
                           variant={active ? "default" : "outline"}
-                          className={
-                            active
-                              ? "rounded-full"
-                              : "rounded-full bg-white"
-                          }
+                          className={active ? "rounded-full" : "rounded-full bg-white"}
                           onClick={() => toggleChannel(row.channel)}
                         >
                           {row.channel}
@@ -1149,7 +1220,7 @@ export default function Page() {
                     variant="outline"
                     onClick={() => setSelectedDetailChannel(null)}
                   >
-                    <X className="h-4 w-4 mr-2" />
+                    <X className="mr-2 h-4 w-4" />
                     Close
                   </Button>
                 </CardHeader>
@@ -1183,7 +1254,7 @@ export default function Page() {
 
                   {showGoals ? (
                     <div className="grid grid-cols-[1.1fr_0.9fr] gap-6">
-                      <Card className="rounded-2xl border-0 shadow-sm bg-slate-50">
+                      <Card className="rounded-2xl border-0 bg-slate-50 shadow-sm">
                         <CardHeader>
                           <CardTitle className="text-base">
                             Channel goal by month
@@ -1191,14 +1262,10 @@ export default function Page() {
                         </CardHeader>
                         <CardContent className="space-y-3">
                           <div className="flex items-center gap-3">
-                            <label className="text-sm text-slate-500">
-                              Month
-                            </label>
+                            <label className="text-sm text-slate-500">Month</label>
                             <select
                               value={selectedGoalMonth}
-                              onChange={(e) =>
-                                setSelectedGoalMonth(e.target.value)
-                              }
+                              onChange={(e) => setSelectedGoalMonth(e.target.value)}
                               className="rounded-xl border bg-white px-3 py-2 text-sm"
                             >
                               {goalMonths.map((month) => (
@@ -1229,11 +1296,9 @@ export default function Page() {
                         </CardContent>
                       </Card>
 
-                      <Card className="rounded-2xl border-0 shadow-sm bg-slate-50">
+                      <Card className="rounded-2xl border-0 bg-slate-50 shadow-sm">
                         <CardHeader>
-                          <CardTitle className="text-base">
-                            Channel trend
-                          </CardTitle>
+                          <CardTitle className="text-base">Channel trend</CardTitle>
                         </CardHeader>
                         <CardContent>
                           <div className="h-[260px]">
@@ -1287,22 +1352,20 @@ export default function Page() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <p className="text-sm text-slate-500">
-                    Paste tab-separated rows like Customer, Date, Revenue.
+                    Paste tab- or comma-separated rows like Customer, Date, Revenue or Date, Channel, Customer, Revenue.
                   </p>
 
                   <textarea
                     value={importText}
                     onChange={(e) => setImportText(e.target.value)}
-                    placeholder={`W Good Co\t1/8\t$1,386\nSwag.com\t3/3\t$900\nLadder\t3/19\t$31,500`}
-                    className="w-full min-h-[220px] rounded-xl border p-3 text-sm"
+                    placeholder={`W Good Co\t1/8\t$1,386\nSwag.com\t3/3\t$900\n1/8/2026,Wholesale,W Good Co,$1386`}
+                    className="min-h-[220px] w-full rounded-xl border p-3 text-sm"
                   />
 
                   <div className="flex items-center gap-3">
                     <Button onClick={importData}>Import rows</Button>
                     {importMessage ? (
-                      <span className="text-sm text-slate-500">
-                        {importMessage}
-                      </span>
+                      <span className="text-sm text-slate-500">{importMessage}</span>
                     ) : null}
                   </div>
                 </CardContent>
@@ -1322,6 +1385,7 @@ export default function Page() {
                         setNewManualEntry((prev) => ({
                           ...prev,
                           date: e.target.value,
+                          month: e.target.value.slice(0, 7),
                         }))
                       }
                     />
@@ -1335,7 +1399,7 @@ export default function Page() {
                         }))
                       }
                     >
-                      {baseChannelRows.map((row) => (
+                      {channelMeta.map((row) => (
                         <option key={row.channel} value={row.channel}>
                           {row.channel}
                         </option>
@@ -1386,26 +1450,32 @@ export default function Page() {
                   <Button onClick={addManualEntry}>Add manual entry</Button>
 
                   <div className="space-y-2">
-                    {manualEntries.map((entry) => (
-                      <div
-                        key={entry.id}
-                        className="rounded-xl border bg-slate-50 p-3 text-sm"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium text-slate-900">
-                              {entry.account} · {entry.channel}
-                            </p>
-                            <p className="text-slate-500">
-                              {entry.date} · {entry.notes || "No notes"}
-                            </p>
-                          </div>
-                          <div className="font-semibold">
-                            {currencyFmt.format(entry.amount)}
+                    {manualEntries.length === 0 ? (
+                      <div className="rounded-xl border bg-slate-50 p-4 text-sm text-slate-500">
+                        No entries yet. Import some rows above to populate the dashboard.
+                      </div>
+                    ) : (
+                      manualEntries.map((entry) => (
+                        <div
+                          key={entry.id}
+                          className="rounded-xl border bg-slate-50 p-3 text-sm"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium text-slate-900">
+                                {entry.account} · {entry.channel}
+                              </p>
+                              <p className="text-slate-500">
+                                {entry.date} · {entry.notes || "No notes"}
+                              </p>
+                            </div>
+                            <div className="font-semibold">
+                              {currencyFmt.format(entry.amount)}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </CardContent>
               </Card>
