@@ -27,6 +27,7 @@ import {
   Upload,
   Database,
   CalendarRange,
+  Target,
 } from "lucide-react";
 
 const currencyFmt = new Intl.NumberFormat("en-US", {
@@ -52,6 +53,24 @@ const dateRangeOptions = [
   { key: "mtd", label: "MTD" },
   { key: "30d", label: "Last 30 days" },
 ] as const;
+
+const goalMonths = [
+  "2026-01",
+  "2026-02",
+  "2026-03",
+  "2026-04",
+  "2026-05",
+  "2026-06",
+] as const;
+
+const initialGoalsByMonth: Record<string, { total: number }> = {
+  "2026-01": { total: 42000 },
+  "2026-02": { total: 48000 },
+  "2026-03": { total: 50000 },
+  "2026-04": { total: 55000 },
+  "2026-05": { total: 60000 },
+  "2026-06": { total: 65000 },
+};
 
 const channelChartData = {
   Shopify: [
@@ -161,12 +180,8 @@ function ChannelCard({ row }: any) {
         <div className="flex justify-between">
           <div>
             <p className="text-sm text-slate-500">{row.channel}</p>
-            <p className="text-xl font-semibold mt-2">
-              {currencyFmt.format(row.revenue)}
-            </p>
-            <p className="text-xs text-slate-400">
-              {numberFmt.format(row.orders)} orders
-            </p>
+            <p className="text-xl font-semibold mt-2">{currencyFmt.format(row.revenue)}</p>
+            <p className="text-xs text-slate-400">{numberFmt.format(row.orders)} orders</p>
           </div>
           <Badge>{pctFmt.format(row.fill)}</Badge>
         </div>
@@ -182,8 +197,10 @@ export default function Page() {
     "Wholesale",
     "Retail",
   ]);
-  const [selectedRange, setSelectedRange] =
-    useState<(typeof dateRangeOptions)[number]["key"]>("mtd");
+  const [selectedRange, setSelectedRange] = useState<(typeof dateRangeOptions)[number]["key"]>("mtd");
+  const [showGoals, setShowGoals] = useState(false);
+  const [selectedGoalMonth, setSelectedGoalMonth] = useState<string>("2026-03");
+  const [goalsByMonth, setGoalsByMonth] = useState<Record<string, { total: number }>>(initialGoalsByMonth);
 
   const filteredRows = useMemo(
     () => channelRows.filter((row) => selectedChannels.includes(row.channel)),
@@ -199,6 +216,9 @@ export default function Page() {
     [filteredRows]
   );
   const aov = totalOrders ? totalRevenue / totalOrders : 0;
+  const activeGoal = goalsByMonth[selectedGoalMonth]?.total ?? 0;
+  const goalGap = Math.max(activeGoal - totalRevenue, 0);
+  const goalAttainment = activeGoal ? totalRevenue / activeGoal : 0;
 
   const visibleLength = useMemo(() => {
     if (selectedRange === "7d") return 7;
@@ -208,22 +228,17 @@ export default function Page() {
   }, [selectedRange]);
 
   const combinedChartData = useMemo(() => {
-    const dates = channelChartData.Shopify.slice(-visibleLength).map(
-      (d) => d.date
-    );
-
+    const dates = channelChartData.Shopify.slice(-visibleLength).map((d) => d.date);
     return dates.map((date, index) => {
       const sourceIndex = channelChartData.Shopify.length - visibleLength + index;
       const base: Record<string, string | number> = { date };
       let previous = 0;
-
       selectedChannels.forEach((channel) => {
         const key = channel as keyof typeof channelChartData;
         const point = channelChartData[key][sourceIndex];
         base[channel] = point.current;
         previous += point.previous;
       });
-
       base.previous = previous;
       return base;
     });
@@ -243,27 +258,22 @@ export default function Page() {
     });
   };
 
+  const updateGoal = (month: string, value: string) => {
+    const parsed = Number(value || 0);
+    setGoalsByMonth((prev) => ({
+      ...prev,
+      [month]: { total: parsed },
+    }));
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 p-8">
-      <div className="mx-auto max-w-7xl space-y-6">
+      <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:justify-between lg:items-center">
           <div>
-            <div className="flex items-center gap-2">
-              <Badge className="rounded-full bg-blue-100 text-blue-700 hover:bg-blue-100">
-                Revenue OS
-              </Badge>
-              <Badge variant="secondary" className="rounded-full">
-                Auto-sync ready
-              </Badge>
-            </div>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-              Revenue reporting + goals dashboard
-            </h1>
-            <p className="mt-2 text-sm text-slate-500">
-              Toggle channels, change ranges, and compare channel mix.
-            </p>
+            <h1 className="text-3xl font-semibold">Revenue dashboard</h1>
+            <p className="text-sm text-slate-500">Toggle channels, change ranges, compare channel mix, and optionally track monthly goals</p>
           </div>
-
           <div className="flex items-center gap-3 flex-wrap">
             <div className="inline-flex rounded-xl bg-white p-1 shadow-sm border">
               {dateRangeOptions.map((option) => (
@@ -279,32 +289,91 @@ export default function Page() {
               ))}
             </div>
             <Button className="rounded-xl">
-              <Upload className="h-4 w-4 mr-2" />
-              Connect data
+              <Upload className="h-4 w-4 mr-2" /> Connect
             </Button>
           </div>
         </div>
 
         <div className="grid grid-cols-3 gap-4">
-          <KpiCard
-            title="Net sales"
-            value={currencyFmt.format(totalRevenue)}
-            subtext="Selected channels"
-            icon={TrendingUp}
-          />
-          <KpiCard
-            title="Orders"
-            value={numberFmt.format(totalOrders)}
-            subtext="Across selected channels"
-            icon={ShoppingBag}
-          />
-          <KpiCard
-            title="AOV"
-            value={currencyFmt.format(aov)}
-            subtext="Blended average order value"
-            icon={Store}
-          />
+          <KpiCard title="Net sales" value={currencyFmt.format(totalRevenue)} subtext="Selected channels" icon={TrendingUp} />
+          <KpiCard title="Orders" value={numberFmt.format(totalOrders)} subtext="Across selected channels" icon={ShoppingBag} />
+          <KpiCard title="AOV" value={currencyFmt.format(aov)} subtext="Blended average order value" icon={Store} />
         </div>
+
+        <div className="flex items-center justify-between rounded-2xl border bg-white p-4 shadow-sm">
+          <div>
+            <p className="text-sm font-medium text-slate-900">Goals</p>
+            <p className="text-sm text-slate-500">Turn goals on when you want to compare revenue against a monthly target.</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-slate-500">{showGoals ? "On" : "Off"}</span>
+            <button
+              type="button"
+              onClick={() => setShowGoals((prev) => !prev)}
+              className={`relative h-7 w-12 rounded-full transition ${showGoals ? "bg-slate-900" : "bg-slate-300"}`}
+            >
+              <span
+                className={`absolute top-1 h-5 w-5 rounded-full bg-white transition ${showGoals ? "left-6" : "left-1"}`}
+              />
+            </button>
+          </div>
+        </div>
+
+        {showGoals ? (
+          <div className="grid grid-cols-[1.2fr_0.8fr] gap-6">
+            <Card className="rounded-3xl border-0 shadow-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Target className="h-5 w-5" /> Monthly goals</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <label className="text-sm text-slate-500">Month</label>
+                  <select
+                    value={selectedGoalMonth}
+                    onChange={(e) => setSelectedGoalMonth(e.target.value)}
+                    className="rounded-xl border bg-white px-3 py-2 text-sm"
+                  >
+                    {goalMonths.map((month) => (
+                      <option key={month} value={month}>{month}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-2xl bg-slate-50 p-4">
+                    <p className="text-sm text-slate-500">Monthly goal</p>
+                    <input
+                      type="number"
+                      value={goalsByMonth[selectedGoalMonth]?.total ?? 0}
+                      onChange={(e) => updateGoal(selectedGoalMonth, e.target.value)}
+                      className="mt-2 w-full rounded-xl border bg-white px-3 py-2 text-lg font-semibold"
+                    />
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 p-4">
+                    <p className="text-sm text-slate-500">Attainment</p>
+                    <p className="mt-2 text-2xl font-semibold">{pctFmt.format(goalAttainment)}</p>
+                    <p className="mt-1 text-sm text-slate-400">Gap: {currencyFmt.format(goalGap)}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-3xl border-0 shadow-sm">
+              <CardHeader>
+                <CardTitle>Goal summary</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="rounded-2xl bg-slate-50 p-4">
+                  <p className="text-sm text-slate-500">Revenue vs goal</p>
+                  <p className="mt-2 text-2xl font-semibold">{currencyFmt.format(totalRevenue)} / {currencyFmt.format(activeGoal)}</p>
+                  <div className="mt-3 h-3 overflow-hidden rounded-full bg-slate-200">
+                    <div className="h-full rounded-full bg-slate-900" style={{ width: `${Math.min(goalAttainment * 100, 100)}%` }} />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        ) : null}
 
         <div className="grid grid-cols-[1.6fr_0.8fr] gap-6">
           <Card className="rounded-3xl">
@@ -333,34 +402,12 @@ export default function Page() {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
                     <YAxis tickFormatter={(v: number) => `$${v / 1000}K`} />
-                    <Tooltip
-                      formatter={(v: any) => [
-                        currencyFmt.format(Number(v ?? 0)),
-                        "",
-                      ]}
-                    />
+                    <Tooltip formatter={(v: any) => [currencyFmt.format(Number(v ?? 0)), ""]} />
                     <Legend />
                     {selectedChannels.map((channel, index) => (
-                      <Bar
-                        key={channel}
-                        dataKey={channel}
-                        stackId="channels"
-                        fill={palette[index % palette.length]}
-                        radius={
-                          index === selectedChannels.length - 1
-                            ? [4, 4, 0, 0]
-                            : [0, 0, 0, 0]
-                        }
-                      />
+                      <Bar key={channel} dataKey={channel} stackId="channels" fill={palette[index % palette.length]} radius={index === selectedChannels.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]} />
                     ))}
-                    <Line
-                      type="monotone"
-                      dataKey="previous"
-                      name="Comparison period"
-                      stroke="#0f172a"
-                      strokeWidth={3}
-                      dot={false}
-                    />
+                    <Line type="monotone" dataKey="previous" name="Comparison period" stroke="#0f172a" strokeWidth={3} dot={false} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -375,27 +422,12 @@ export default function Page() {
               <div className="h-[420px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie
-                      data={mixData}
-                      dataKey="value"
-                      nameKey="name"
-                      innerRadius={80}
-                      outerRadius={130}
-                      paddingAngle={3}
-                    >
+                    <Pie data={mixData} dataKey="value" nameKey="name" innerRadius={80} outerRadius={130} paddingAngle={3}>
                       {mixData.map((entry, index) => (
-                        <Cell
-                          key={entry.name}
-                          fill={palette[index % palette.length]}
-                        />
+                        <Cell key={entry.name} fill={palette[index % palette.length]} />
                       ))}
                     </Pie>
-                    <Tooltip
-                      formatter={(v: any) => [
-                        currencyFmt.format(Number(v ?? 0)),
-                        "Revenue",
-                      ]}
-                    />
+                    <Tooltip formatter={(v: any) => [currencyFmt.format(Number(v ?? 0)), "Revenue"]} />
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
@@ -415,21 +447,9 @@ export default function Page() {
             <CardTitle>API wiring next</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-slate-600">
-            <p>
-              <span className="font-medium text-slate-900">Shopify:</span> pull
-              orders and sales by date from Admin GraphQL into a normalized revenue
-              table.
-            </p>
-            <p>
-              <span className="font-medium text-slate-900">Amazon:</span> pull
-              order and sales data from SP-API into the same table keyed by date
-              and channel.
-            </p>
-            <p>
-              <span className="font-medium text-slate-900">Best architecture:</span>{" "}
-              Next.js frontend + small backend sync job + Postgres/Supabase so the
-              dashboard reads one clean dataset.
-            </p>
+            <p><span className="font-medium text-slate-900">Shopify:</span> pull orders and sales by date from Admin GraphQL into a normalized revenue table.</p>
+            <p><span className="font-medium text-slate-900">Amazon:</span> pull order and sales data from SP-API into the same table keyed by date and channel.</p>
+            <p><span className="font-medium text-slate-900">Best architecture:</span> Next.js frontend + small backend sync job + Postgres/Supabase so the dashboard reads one clean dataset.</p>
           </CardContent>
         </Card>
       </div>
