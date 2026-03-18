@@ -74,6 +74,8 @@ type ViewKey = (typeof viewOptions)[number]["key"];
 type ChannelName = "Shopify" | "Amazon" | "Corporate" | "Retail";
 type SeededChannelName = Exclude<ChannelName, "Corporate">;
 type PageTab = "dashboard" | "reports";
+type MonthDisplayMode = "full" | "mtd";
+type GoalRollupMode = "monthly" | "quarterly" | "annual";
 
 type GoalShape = {
   total: number;
@@ -282,6 +284,12 @@ function formatDayLabel(date: Date) {
   return date.toLocaleString("en-US", { month: "short", day: "numeric" });
 }
 
+function monthKeyFromDate(date: Date) {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  return `${yyyy}-${mm}`;
+}
+
 function normalizeAccount(value: string) {
   const cleaned = value.trim();
   const lower = cleaned.toLowerCase();
@@ -430,6 +438,9 @@ function buildSeededEntries() {
 const seededEntries = buildSeededEntries();
 
 export default function Page() {
+  const today = startOfDay(new Date());
+  const currentMonthKey = monthKeyFromDate(today);
+
   const [activeTab, setActiveTab] = useState<PageTab>("dashboard");
   const [selectedChannels, setSelectedChannels] = useState<ChannelName[]>([
     "Shopify",
@@ -437,13 +448,19 @@ export default function Page() {
     "Corporate",
     "Retail",
   ]);
-  const [selectedView, setSelectedView] = useState<ViewKey>("monthly");
+  const [selectedView, setSelectedView] = useState<ViewKey>("daily");
   const [selectedQuarter, setSelectedQuarter] =
     useState<(typeof quarterOptions)[number]["key"]>("Q1");
-  const [customStart, setCustomStart] = useState("2026-03-01");
-  const [customEnd, setCustomEnd] = useState("2026-03-31");
+  const [selectedDashboardMonth, setSelectedDashboardMonth] =
+    useState<string>(currentMonthKey);
+  const [monthDisplayMode, setMonthDisplayMode] =
+    useState<MonthDisplayMode>("full");
+  const [customStart, setCustomStart] = useState(currentMonthKey + "-01");
+  const [customEnd, setCustomEnd] = useState(
+    `${currentMonthKey}-${String(today.getDate()).padStart(2, "0")}`
+  );
   const [showGoals, setShowGoals] = useState(false);
-  const [selectedGoalMonth, setSelectedGoalMonth] = useState<string>("2026-03");
+  const [selectedGoalMonth, setSelectedGoalMonth] = useState<string>(currentMonthKey);
   const [goalsByMonth, setGoalsByMonth] =
     useState<Record<string, GoalShape>>(initialGoalsByMonth);
   const [selectedDetailChannel, setSelectedDetailChannel] =
@@ -451,8 +468,8 @@ export default function Page() {
 
   const [manualEntries, setManualEntries] = useState<ManualEntry[]>([]);
   const [newManualEntry, setNewManualEntry] = useState<Omit<ManualEntry, "id">>({
-    date: "2026-03-18",
-    month: "2026-03",
+    date: `${currentMonthKey}-${String(today.getDate()).padStart(2, "0")}`,
+    month: currentMonthKey,
     channel: "Corporate",
     account: "",
     amount: 0,
@@ -474,12 +491,12 @@ export default function Page() {
 
   const latestDashboardDate = useMemo(() => {
     const all = [...allEntries];
-    if (!all.length) return new Date(2026, 2, 31);
+    if (!all.length) return today;
     return all.reduce((latest, entry) => {
       const current = parseIsoDate(entry.date);
       return current > latest ? current : latest;
     }, parseIsoDate(all[0].date));
-  }, [allEntries]);
+  }, [allEntries, today]);
 
   const chartMode = useMemo(() => {
     const selected = viewOptions.find((option) => option.key === selectedView);
@@ -487,16 +504,51 @@ export default function Page() {
   }, [selectedView]);
 
   const rangeInfo = useMemo(() => {
-    if (selectedView === "monthly") {
-      const selectedMonthDate = parseIsoDate(`${selectedGoalMonth}-01`);
-      const start = startOfMonth(selectedMonthDate);
-      const end = endOfMonth(selectedMonthDate);
-      const bucketCount = daysInMonth(start.getFullYear(), start.getMonth());
+    if (selectedView === "daily") {
+      return {
+        mode: "daily" as const,
+        currentStart: today,
+        currentEnd: today,
+        previousStart: addDays(today, -1),
+        bucketCount: 1,
+      };
+    }
+
+    if (selectedView === "weekly") {
+      const end = today;
+      const start = addDays(end, -6);
 
       return {
         mode: "daily" as const,
         currentStart: start,
-        currentEnd: startOfDay(end),
+        currentEnd: end,
+        previousStart: addDays(start, -7),
+        bucketCount: 7,
+      };
+    }
+
+    if (selectedView === "monthly") {
+      const selectedMonthDate = parseIsoDate(`${selectedDashboardMonth}-01`);
+      const start = startOfMonth(selectedMonthDate);
+      const fullEnd = startOfDay(endOfMonth(selectedMonthDate));
+
+      const isCurrentMonth = selectedDashboardMonth === currentMonthKey;
+      const effectiveEnd =
+        monthDisplayMode === "mtd" && isCurrentMonth && today < fullEnd
+          ? today
+          : fullEnd;
+
+      const bucketCount = Math.max(
+        1,
+        Math.round(
+          (effectiveEnd.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
+        ) + 1
+      );
+
+      return {
+        mode: "daily" as const,
+        currentStart: start,
+        currentEnd: effectiveEnd,
         previousStart: addDays(start, -bucketCount),
         bucketCount,
       };
@@ -504,6 +556,7 @@ export default function Page() {
 
     if (chartMode === "monthly") {
       const year = Number(selectedGoalMonth.slice(0, 4));
+
       if (selectedView === "annual") {
         const start = new Date(year, 0, 1);
         const end = new Date(year, 11, 1);
@@ -527,25 +580,12 @@ export default function Page() {
       };
     }
 
-    if (selectedView === "custom") {
-      const start = startOfDay(new Date(customStart));
-      const end = startOfDay(new Date(customEnd));
-      const bucketCount = Math.max(
-        1,
-        Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
-      );
-      return {
-        mode: "daily" as const,
-        currentStart: start,
-        currentEnd: end,
-        previousStart: addDays(start, -bucketCount),
-        bucketCount,
-      };
-    }
-
-    const bucketCount = selectedView === "daily" ? 7 : 14;
-    const end = startOfDay(latestDashboardDate);
-    const start = addDays(end, -(bucketCount - 1));
+    const start = startOfDay(new Date(customStart));
+    const end = startOfDay(new Date(customEnd));
+    const bucketCount = Math.max(
+      1,
+      Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
+    );
 
     return {
       mode: "daily" as const,
@@ -559,9 +599,12 @@ export default function Page() {
     selectedView,
     selectedQuarter,
     selectedGoalMonth,
+    selectedDashboardMonth,
+    monthDisplayMode,
     customStart,
     customEnd,
-    latestDashboardDate,
+    today,
+    currentMonthKey,
   ]);
 
   const currentPeriodEntries = useMemo(() => {
@@ -622,19 +665,107 @@ export default function Page() {
   const totalOrders = filteredRows.reduce((s, r) => s + r.orders, 0);
   const aov = totalOrders ? totalRevenue / totalOrders : 0;
 
+  const getMonthGoalForChannels = (monthKey: string) => {
+    const monthGoals = goalsByMonth[monthKey]?.channels;
+    if (!monthGoals) return 0;
+
+    return selectedChannels.reduce((sum, channel) => {
+      return sum + (monthGoals[channel] ?? 0);
+    }, 0);
+  };
+
+  const getAllChannelMonthGoal = (monthKey: string) => {
+    const monthGoals = goalsByMonth[monthKey]?.channels;
+    if (!monthGoals) return 0;
+    return (Object.values(monthGoals) as number[]).reduce((sum, value) => sum + value, 0);
+  };
+
+  const currentGoalRollupMode: GoalRollupMode =
+    selectedView === "quarterly"
+      ? "quarterly"
+      : selectedView === "annual"
+      ? "annual"
+      : "monthly";
+
+  const goalMonthKeysForCurrentView = useMemo(() => {
+    const year = Number(selectedGoalMonth.slice(0, 4));
+
+    if (currentGoalRollupMode === "annual") {
+      return Array.from({ length: 12 }, (_, i) => {
+        const mm = String(i + 1).padStart(2, "0");
+        return `${year}-${mm}`;
+      });
+    }
+
+    if (currentGoalRollupMode === "quarterly") {
+      const quarter = quarterOptions.find((q) => q.key === selectedQuarter) ?? quarterOptions[0];
+      return quarter.months.map((monthIndex) => {
+        const mm = String(monthIndex + 1).padStart(2, "0");
+        return `${year}-${mm}`;
+      });
+    }
+
+    return [selectedGoalMonth];
+  }, [currentGoalRollupMode, selectedGoalMonth, selectedQuarter]);
+
   const selectedGoalRevenue = useMemo(() => {
+    if (currentGoalRollupMode === "monthly") {
+      return allEntries
+        .filter(
+          (entry) =>
+            entry.month === selectedGoalMonth &&
+            selectedChannels.includes(entry.channel)
+        )
+        .reduce((sum, entry) => sum + entry.amount, 0);
+    }
+
+    if (currentGoalRollupMode === "quarterly") {
+      const quarterMonths = new Set(goalMonthKeysForCurrentView);
+      return allEntries
+        .filter(
+          (entry) =>
+            quarterMonths.has(entry.month) &&
+            selectedChannels.includes(entry.channel)
+        )
+        .reduce((sum, entry) => sum + entry.amount, 0);
+    }
+
+    const annualMonths = new Set(goalMonthKeysForCurrentView);
     return allEntries
       .filter(
         (entry) =>
-          entry.month === selectedGoalMonth &&
+          annualMonths.has(entry.month) &&
           selectedChannels.includes(entry.channel)
       )
       .reduce((sum, entry) => sum + entry.amount, 0);
-  }, [allEntries, selectedGoalMonth, selectedChannels]);
+  }, [
+    allEntries,
+    currentGoalRollupMode,
+    goalMonthKeysForCurrentView,
+    selectedChannels,
+    selectedGoalMonth,
+  ]);
 
-  const activeGoal = goalsByMonth[selectedGoalMonth]?.total ?? 0;
+  const activeGoal = useMemo(() => {
+    return goalMonthKeysForCurrentView.reduce((sum, monthKey) => {
+      return sum + getMonthGoalForChannels(monthKey);
+    }, 0);
+  }, [goalMonthKeysForCurrentView, selectedChannels, goalsByMonth]);
+
   const goalGap = Math.max(activeGoal - selectedGoalRevenue, 0);
   const goalAttainment = activeGoal ? selectedGoalRevenue / activeGoal : 0;
+
+  const goalContextLabel = useMemo(() => {
+    if (currentGoalRollupMode === "annual") {
+      return `${selectedGoalMonth.slice(0, 4)} goal`;
+    }
+
+    if (currentGoalRollupMode === "quarterly") {
+      return `${selectedQuarter} ${selectedGoalMonth.slice(0, 4)} goal`;
+    }
+
+    return `${selectedGoalMonth} goal`;
+  }, [currentGoalRollupMode, selectedGoalMonth, selectedQuarter]);
 
   const combinedChartData = useMemo(() => {
     const rows: Array<Record<string, string | number>> = [];
@@ -817,21 +948,30 @@ export default function Page() {
     });
   };
 
-  const updateGoal = (month: string, field: "total" | ChannelName, value: string) => {
+  const updateGoal = (month: string, field: ChannelName, value: string) => {
     const parsed = Number(value || 0);
     setGoalsByMonth((prev) => {
       const current = prev[month] ?? {
         total: 0,
         channels: { Shopify: 0, Amazon: 0, Corporate: 0, Retail: 0 },
       };
-      if (field === "total") {
-        return { ...prev, [month]: { ...current, total: parsed } };
-      }
+
+      const nextChannels = {
+        ...current.channels,
+        [field]: parsed,
+      };
+
+      const nextTotal = (Object.values(nextChannels) as number[]).reduce(
+        (sum, amount) => sum + amount,
+        0
+      );
+
       return {
         ...prev,
         [month]: {
           ...current,
-          channels: { ...current.channels, [field]: parsed },
+          total: nextTotal,
+          channels: nextChannels,
         },
       };
     });
@@ -848,8 +988,8 @@ export default function Page() {
     ]);
 
     setNewManualEntry({
-      date: "2026-03-18",
-      month: selectedGoalMonth,
+      date: `${currentMonthKey}-${String(today.getDate()).padStart(2, "0")}`,
+      month: currentMonthKey,
       channel: "Corporate",
       account: "",
       amount: 0,
@@ -1100,6 +1240,43 @@ export default function Page() {
               </div>
             ) : null}
 
+            {selectedView === "monthly" ? (
+              <div className="flex flex-wrap items-center gap-3 rounded-2xl border bg-white p-4 shadow-sm">
+                <span className="text-sm text-slate-500">Month</span>
+                <select
+                  value={selectedDashboardMonth}
+                  onChange={(e) => {
+                    setSelectedDashboardMonth(e.target.value);
+                    setSelectedGoalMonth(e.target.value);
+                  }}
+                  className="rounded-xl border bg-white px-3 py-2 text-sm"
+                >
+                  {goalMonths.map((month) => (
+                    <option key={month} value={month}>
+                      {month}
+                    </option>
+                  ))}
+                </select>
+
+                <div className="inline-flex rounded-xl border bg-slate-50 p-1">
+                  <Button
+                    variant={monthDisplayMode === "full" ? "default" : "ghost"}
+                    className="rounded-lg"
+                    onClick={() => setMonthDisplayMode("full")}
+                  >
+                    Full Month
+                  </Button>
+                  <Button
+                    variant={monthDisplayMode === "mtd" ? "default" : "ghost"}
+                    className="rounded-lg"
+                    onClick={() => setMonthDisplayMode("mtd")}
+                  >
+                    Month to Date
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
             {selectedView === "custom" ? (
               <div className="flex flex-wrap items-center gap-3 rounded-2xl border bg-white p-4 shadow-sm">
                 <span className="text-sm text-slate-500">Custom date range</span>
@@ -1187,7 +1364,7 @@ export default function Page() {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Target className="h-5 w-5" />
-                      Monthly goals
+                      Goal setup
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -1195,7 +1372,12 @@ export default function Page() {
                       <label className="text-sm text-slate-500">Month</label>
                       <select
                         value={selectedGoalMonth}
-                        onChange={(e) => setSelectedGoalMonth(e.target.value)}
+                        onChange={(e) => {
+                          setSelectedGoalMonth(e.target.value);
+                          if (selectedView === "monthly") {
+                            setSelectedDashboardMonth(e.target.value);
+                          }
+                        }}
                         className="rounded-xl border bg-white px-3 py-2 text-sm"
                       >
                         {goalMonths.map((month) => (
@@ -1207,26 +1389,32 @@ export default function Page() {
                     </div>
 
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                      <div className="rounded-2xl bg-slate-50 p-4">
-                        <p className="text-sm text-slate-500">Monthly total goal</p>
-                        <Input
-                          type="number"
-                          value={goalsByMonth[selectedGoalMonth]?.total ?? 0}
-                          onChange={(e) =>
-                            updateGoal(selectedGoalMonth, "total", e.target.value)
-                          }
-                          className="mt-2"
-                        />
-                      </div>
-                      <div className="rounded-2xl bg-slate-50 p-4">
-                        <p className="text-sm text-slate-500">Attainment</p>
-                        <p className="mt-2 text-2xl font-semibold">
-                          {pctFmt.format(goalAttainment)}
-                        </p>
-                        <p className="mt-1 text-sm text-slate-400">
-                          Gap: {currencyFmt.format(goalGap)}
-                        </p>
-                      </div>
+                      {channelMeta.map((channel) => (
+                        <div key={channel.channel} className="rounded-2xl bg-slate-50 p-4">
+                          <p className="text-sm text-slate-500">{channel.channel} goal</p>
+                          <Input
+                            type="number"
+                            value={goalsByMonth[selectedGoalMonth]?.channels[channel.channel] ?? 0}
+                            onChange={(e) =>
+                              updateGoal(selectedGoalMonth, channel.channel, e.target.value)
+                            }
+                            className="mt-2"
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="rounded-2xl bg-slate-50 p-4">
+                      <p className="text-sm text-slate-500">
+                        Monthly total goal (all channels)
+                      </p>
+                      <p className="mt-2 text-2xl font-semibold">
+                        {currencyFmt.format(getAllChannelMonthGoal(selectedGoalMonth))}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-400">
+                        Visible goal with current channel toggles:{" "}
+                        {currencyFmt.format(getMonthGoalForChannels(selectedGoalMonth))}
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
@@ -1237,10 +1425,13 @@ export default function Page() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="rounded-2xl bg-slate-50 p-4">
-                      <p className="text-sm text-slate-500">Revenue vs goal</p>
+                      <p className="text-sm text-slate-500">{goalContextLabel}</p>
                       <p className="mt-2 text-2xl font-semibold">
                         {currencyFmt.format(selectedGoalRevenue)} /{" "}
                         {currencyFmt.format(activeGoal)}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-400">
+                        Based on selected channel toggles
                       </p>
                       <div className="mt-3 h-3 overflow-hidden rounded-full bg-slate-200">
                         <div
@@ -1249,6 +1440,23 @@ export default function Page() {
                             width: `${Math.min(goalAttainment * 100, 100)}%`,
                           }}
                         />
+                      </div>
+                      <p className="mt-3 text-sm text-slate-500">
+                        Attainment: {pctFmt.format(goalAttainment)}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-400">
+                        Gap: {currencyFmt.format(goalGap)}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-slate-50 p-4">
+                      <p className="text-sm text-slate-500">Included months</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {goalMonthKeysForCurrentView.map((monthKey) => (
+                          <Badge key={monthKey} variant="secondary">
+                            {monthKey}
+                          </Badge>
+                        ))}
                       </div>
                     </div>
                   </CardContent>
@@ -1280,7 +1488,7 @@ export default function Page() {
                   <div className="h-[280px] md:h-[420px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
-                        key={`main-${selectedView}-${selectedQuarter}-${selectedGoalMonth}-${customStart}-${customEnd}`}
+                        key={`main-${selectedView}-${selectedQuarter}-${selectedGoalMonth}-${selectedDashboardMonth}-${monthDisplayMode}-${customStart}-${customEnd}`}
                         data={combinedChartData}
                         stackOffset="none"
                       >
@@ -1461,7 +1669,7 @@ export default function Page() {
                           <div className="h-[220px] md:h-[260px]">
                             <ResponsiveContainer width="100%" height="100%">
                               <LineChart
-                                key={`detail-${selectedDetailChannel}-${selectedView}-${selectedQuarter}-${selectedGoalMonth}-${customStart}-${customEnd}`}
+                                key={`detail-${selectedDetailChannel}-${selectedView}-${selectedQuarter}-${selectedGoalMonth}-${selectedDashboardMonth}-${monthDisplayMode}-${customStart}-${customEnd}`}
                                 data={detailChartData}
                               >
                                 <CartesianGrid strokeDasharray="3 3" />
