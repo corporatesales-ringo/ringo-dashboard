@@ -72,6 +72,7 @@ const quarterOptions = [
 
 type ViewKey = (typeof viewOptions)[number]["key"];
 type ChannelName = "Shopify" | "Amazon" | "Corporate" | "Retail";
+type SeededChannelName = Exclude<ChannelName, "Corporate">;
 type PageTab = "dashboard" | "reports";
 
 type GoalShape = {
@@ -126,6 +127,58 @@ const channelMeta = [
   { channel: "Retail" as const, icon: Truck },
 ];
 
+const targetAovByChannel: Record<ChannelName, number> = {
+  Shopify: 61,
+  Amazon: 58,
+  Corporate: 650,
+  Retail: 446,
+};
+
+const seededMonthlyRevenue2026: Record<SeededChannelName, Record<string, number>> = {
+  Shopify: {
+    "2026-01": 22000,
+    "2026-02": 24500,
+    "2026-03": 26000,
+    "2026-04": 28200,
+    "2026-05": 30400,
+    "2026-06": 31800,
+    "2026-07": 32600,
+    "2026-08": 34100,
+    "2026-09": 33300,
+    "2026-10": 35800,
+    "2026-11": 38200,
+    "2026-12": 42500,
+  },
+  Amazon: {
+    "2026-01": 11800,
+    "2026-02": 13200,
+    "2026-03": 14500,
+    "2026-04": 15100,
+    "2026-05": 16400,
+    "2026-06": 17600,
+    "2026-07": 16900,
+    "2026-08": 18100,
+    "2026-09": 17300,
+    "2026-10": 18600,
+    "2026-11": 19800,
+    "2026-12": 21200,
+  },
+  Retail: {
+    "2026-01": 3000,
+    "2026-02": 3100,
+    "2026-03": 3000,
+    "2026-04": 3500,
+    "2026-05": 3600,
+    "2026-06": 3900,
+    "2026-07": 3800,
+    "2026-08": 4050,
+    "2026-09": 3950,
+    "2026-10": 4100,
+    "2026-11": 4300,
+    "2026-12": 4500,
+  },
+};
+
 function KpiCard({
   title,
   value,
@@ -175,8 +228,8 @@ function ChannelCard({
       onClick={onClick}
     >
       <CardContent className="p-5">
-        <div className="flex justify-between">
-          <div>
+        <div className="flex justify-between gap-3">
+          <div className="min-w-0">
             <p className="text-sm text-slate-500">{row.channel}</p>
             <p className="mt-2 text-xl font-semibold">
               {currencyFmt.format(row.revenue)}
@@ -206,6 +259,10 @@ function addDays(date: Date, days: number) {
 
 function startOfMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function endOfMonth(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0);
 }
 
 function addMonths(date: Date, months: number) {
@@ -292,6 +349,86 @@ function parseDate(value: string) {
   return "";
 }
 
+function daysInMonth(year: number, monthIndex: number) {
+  return new Date(year, monthIndex + 1, 0).getDate();
+}
+
+function buildDailySeedEntriesForMonth(
+  year: number,
+  monthIndex: number,
+  channel: SeededChannelName,
+  total: number,
+  startId: number
+): ManualEntry[] {
+  const numDays = daysInMonth(year, monthIndex);
+  const rawWeights: number[] = [];
+
+  for (let day = 1; day <= numDays; day++) {
+    const date = new Date(year, monthIndex, day);
+    const weekday = date.getDay();
+
+    let weight = 1;
+    if (channel === "Shopify") {
+      weight += weekday === 0 || weekday === 6 ? 0.25 : 0.05;
+      weight += day % 7 === 0 ? 0.08 : 0;
+    } else if (channel === "Amazon") {
+      weight += weekday === 0 || weekday === 6 ? 0.12 : 0.04;
+      weight += day % 5 === 0 ? 0.06 : 0;
+    } else {
+      weight += weekday === 5 || weekday === 6 ? 0.18 : 0.03;
+      weight += day % 6 === 0 ? 0.05 : 0;
+    }
+    rawWeights.push(weight);
+  }
+
+  const totalWeight = rawWeights.reduce((sum, w) => sum + w, 0);
+  const amounts = rawWeights.map((weight) => Math.round((total * weight) / totalWeight));
+  const diff = total - amounts.reduce((sum, amount) => sum + amount, 0);
+  amounts[amounts.length - 1] += diff;
+
+  return amounts.map((amount, index) => {
+    const day = String(index + 1).padStart(2, "0");
+    const month = String(monthIndex + 1).padStart(2, "0");
+    return {
+      id: startId + index,
+      date: `${year}-${month}-${day}`,
+      month: `${year}-${month}`,
+      channel,
+      account: `${channel} Seed`,
+      amount,
+      notes: "Seeded",
+    };
+  });
+}
+
+function buildSeededEntries() {
+  const entries: ManualEntry[] = [];
+  let idCounter = -100000;
+
+  (Object.keys(seededMonthlyRevenue2026) as SeededChannelName[]).forEach((channel) => {
+    Object.entries(seededMonthlyRevenue2026[channel]).forEach(([monthKey, total]) => {
+      const [yearStr, monthStr] = monthKey.split("-");
+      const year = Number(yearStr);
+      const monthIndex = Number(monthStr) - 1;
+
+      entries.push(
+        ...buildDailySeedEntriesForMonth(year, monthIndex, channel, total, idCounter)
+      );
+      idCounter -= 1000;
+
+      const previousYearTotal = Math.round(total * 0.82);
+      entries.push(
+        ...buildDailySeedEntriesForMonth(year - 1, monthIndex, channel, previousYearTotal, idCounter)
+      );
+      idCounter -= 1000;
+    });
+  });
+
+  return entries;
+}
+
+const seededEntries = buildSeededEntries();
+
 export default function Page() {
   const [activeTab, setActiveTab] = useState<PageTab>("dashboard");
   const [selectedChannels, setSelectedChannels] = useState<ChannelName[]>([
@@ -331,13 +468,18 @@ export default function Page() {
   const [importText, setImportText] = useState("");
   const [importMessage, setImportMessage] = useState("");
 
-  const latestEntryDate = useMemo(() => {
-    if (!manualEntries.length) return new Date(2026, 2, 31);
-    return manualEntries.reduce((latest, entry) => {
+  const allEntries = useMemo(() => {
+    return [...seededEntries, ...manualEntries];
+  }, [manualEntries]);
+
+  const latestDashboardDate = useMemo(() => {
+    const all = [...allEntries];
+    if (!all.length) return new Date(2026, 2, 31);
+    return all.reduce((latest, entry) => {
       const current = parseIsoDate(entry.date);
       return current > latest ? current : latest;
-    }, parseIsoDate(manualEntries[0].date));
-  }, [manualEntries]);
+    }, parseIsoDate(all[0].date));
+  }, [allEntries]);
 
   const chartMode = useMemo(() => {
     const selected = viewOptions.find((option) => option.key === selectedView);
@@ -345,6 +487,21 @@ export default function Page() {
   }, [selectedView]);
 
   const rangeInfo = useMemo(() => {
+    if (selectedView === "monthly") {
+      const selectedMonthDate = parseIsoDate(`${selectedGoalMonth}-01`);
+      const start = startOfMonth(selectedMonthDate);
+      const end = endOfMonth(selectedMonthDate);
+      const bucketCount = daysInMonth(start.getFullYear(), start.getMonth());
+
+      return {
+        mode: "daily" as const,
+        currentStart: start,
+        currentEnd: startOfDay(end),
+        previousStart: addDays(start, -bucketCount),
+        bucketCount,
+      };
+    }
+
     if (chartMode === "monthly") {
       const year = Number(selectedGoalMonth.slice(0, 4));
       if (selectedView === "annual") {
@@ -386,9 +543,8 @@ export default function Page() {
       };
     }
 
-    const bucketCount =
-      selectedView === "daily" ? 7 : selectedView === "weekly" ? 14 : 30;
-    const end = startOfDay(latestEntryDate);
+    const bucketCount = selectedView === "daily" ? 7 : 14;
+    const end = startOfDay(latestDashboardDate);
     const start = addDays(end, -(bucketCount - 1));
 
     return {
@@ -405,18 +561,18 @@ export default function Page() {
     selectedGoalMonth,
     customStart,
     customEnd,
-    latestEntryDate,
+    latestDashboardDate,
   ]);
 
   const currentPeriodEntries = useMemo(() => {
-    return manualEntries.filter((entry) => {
+    return allEntries.filter((entry) => {
       if (!selectedChannels.includes(entry.channel)) return false;
       const date = parseIsoDate(entry.date);
 
       if (rangeInfo.mode === "daily") {
         return (
           date >= rangeInfo.currentStart &&
-          date <= addDays(rangeInfo.currentEnd, 1)
+          date < addDays(rangeInfo.currentEnd, 1)
         );
       }
 
@@ -426,7 +582,7 @@ export default function Page() {
         monthDate <= rangeInfo.currentEnd
       );
     });
-  }, [manualEntries, selectedChannels, rangeInfo]);
+  }, [allEntries, selectedChannels, rangeInfo]);
 
   const channelRows = useMemo(() => {
     const revenueByChannel: Record<ChannelName, number> = {
@@ -435,23 +591,18 @@ export default function Page() {
       Corporate: 0,
       Retail: 0,
     };
-    const ordersByChannel: Record<ChannelName, number> = {
-      Shopify: 0,
-      Amazon: 0,
-      Corporate: 0,
-      Retail: 0,
-    };
 
     currentPeriodEntries.forEach((entry) => {
       revenueByChannel[entry.channel] += entry.amount;
-      ordersByChannel[entry.channel] += 1;
     });
 
     const totalRevenue = Object.values(revenueByChannel).reduce((sum, v) => sum + v, 0);
 
     return channelMeta.map((row) => {
       const revenue = revenueByChannel[row.channel];
-      const orders = ordersByChannel[row.channel];
+      const orders =
+        revenue > 0 ? Math.max(1, Math.round(revenue / targetAovByChannel[row.channel])) : 0;
+
       return {
         ...row,
         revenue,
@@ -472,14 +623,14 @@ export default function Page() {
   const aov = totalOrders ? totalRevenue / totalOrders : 0;
 
   const selectedGoalRevenue = useMemo(() => {
-    return manualEntries
+    return allEntries
       .filter(
         (entry) =>
           entry.month === selectedGoalMonth &&
           selectedChannels.includes(entry.channel)
       )
       .reduce((sum, entry) => sum + entry.amount, 0);
-  }, [manualEntries, selectedGoalMonth, selectedChannels]);
+  }, [allEntries, selectedGoalMonth, selectedChannels]);
 
   const activeGoal = goalsByMonth[selectedGoalMonth]?.total ?? 0;
   const goalGap = Math.max(activeGoal - selectedGoalRevenue, 0);
@@ -518,7 +669,7 @@ export default function Page() {
       let previous = 0;
 
       selectedChannels.forEach((channel) => {
-        const currentRevenue = manualEntries
+        const currentRevenue = allEntries
           .filter((entry) => entry.channel === channel)
           .filter((entry) => {
             const date = parseIsoDate(entry.date);
@@ -526,7 +677,7 @@ export default function Page() {
           })
           .reduce((sum, entry) => sum + entry.amount, 0);
 
-        const previousRevenue = manualEntries
+        const previousRevenue = allEntries
           .filter((entry) => entry.channel === channel)
           .filter((entry) => {
             const date = parseIsoDate(entry.date);
@@ -543,7 +694,7 @@ export default function Page() {
     }
 
     return rows;
-  }, [manualEntries, selectedChannels, rangeInfo]);
+  }, [allEntries, selectedChannels, rangeInfo]);
 
   const mixData = useMemo(
     () =>
@@ -564,14 +715,14 @@ export default function Page() {
 
   const selectedDetailRevenueForGoalMonth = useMemo(() => {
     if (!selectedDetailChannel) return 0;
-    return manualEntries
+    return allEntries
       .filter(
         (entry) =>
           entry.channel === selectedDetailChannel &&
           entry.month === selectedGoalMonth
       )
       .reduce((sum, entry) => sum + entry.amount, 0);
-  }, [manualEntries, selectedDetailChannel, selectedGoalMonth]);
+  }, [allEntries, selectedDetailChannel, selectedGoalMonth]);
 
   const channelAttainment =
     selectedDetailChannel && channelGoal
@@ -611,7 +762,7 @@ export default function Page() {
           ? formatDayLabel(currentBucketStart)
           : formatMonth(currentBucketStart);
 
-      const current = manualEntries
+      const current = allEntries
         .filter((entry) => entry.channel === selectedDetailChannel)
         .filter((entry) => {
           const date = parseIsoDate(entry.date);
@@ -619,7 +770,7 @@ export default function Page() {
         })
         .reduce((sum, entry) => sum + entry.amount, 0);
 
-      const previous = manualEntries
+      const previous = allEntries
         .filter((entry) => entry.channel === selectedDetailChannel)
         .filter((entry) => {
           const date = parseIsoDate(entry.date);
@@ -631,7 +782,7 @@ export default function Page() {
     }
 
     return rows;
-  }, [manualEntries, selectedDetailChannel, rangeInfo]);
+  }, [allEntries, selectedDetailChannel, rangeInfo]);
 
   const reportRows = useMemo(() => {
     return manualEntries
@@ -779,7 +930,7 @@ export default function Page() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8">
+    <div className="min-h-screen bg-slate-50 px-4 py-5 md:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -790,7 +941,7 @@ export default function Page() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <div className="inline-flex rounded-xl border bg-white p-1 shadow-sm">
+            <div className="inline-flex w-full flex-wrap rounded-xl border bg-white p-1 shadow-sm sm:w-auto">
               <Button
                 variant={activeTab === "dashboard" ? "default" : "ghost"}
                 className="rounded-lg"
@@ -822,7 +973,7 @@ export default function Page() {
                 <CardTitle>Customer lookup</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr] gap-3">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr]">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                     <Input
@@ -860,7 +1011,7 @@ export default function Page() {
               </CardContent>
             </Card>
 
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <KpiCard
                 title="Customer sales"
                 value={currencyFmt.format(reportSummary.total)}
@@ -892,34 +1043,36 @@ export default function Page() {
                 <CardTitle>Sales records</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="overflow-hidden rounded-2xl border">
-                  <div className="grid grid-cols-[0.8fr_1.2fr_0.8fr_0.8fr_1.4fr] gap-3 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    <div>Date</div>
-                    <div>Customer</div>
-                    <div>Channel</div>
-                    <div>Amount</div>
-                    <div>Notes</div>
-                  </div>
-                  {reportRows.length === 0 ? (
-                    <div className="px-4 py-8 text-sm text-slate-500">
-                      No matching sales found.
+                <div className="overflow-x-auto rounded-2xl border">
+                  <div className="min-w-[720px]">
+                    <div className="grid grid-cols-[0.8fr_1.2fr_0.8fr_0.8fr_1.4fr] gap-3 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <div>Date</div>
+                      <div>Customer</div>
+                      <div>Channel</div>
+                      <div>Amount</div>
+                      <div>Notes</div>
                     </div>
-                  ) : (
-                    reportRows.map((row) => (
-                      <div
-                        key={row.id}
-                        className="grid grid-cols-[0.8fr_1.2fr_0.8fr_0.8fr_1.4fr] gap-3 border-t px-4 py-3 text-sm"
-                      >
-                        <div>{row.date}</div>
-                        <div className="font-medium text-slate-900">
-                          {row.account}
-                        </div>
-                        <div>{row.channel}</div>
-                        <div>{currencyFmt.format(row.amount)}</div>
-                        <div className="text-slate-500">{row.notes || "—"}</div>
+                    {reportRows.length === 0 ? (
+                      <div className="px-4 py-8 text-sm text-slate-500">
+                        No matching sales found.
                       </div>
-                    ))
-                  )}
+                    ) : (
+                      reportRows.map((row) => (
+                        <div
+                          key={row.id}
+                          className="grid grid-cols-[0.8fr_1.2fr_0.8fr_0.8fr_1.4fr] gap-3 border-t px-4 py-3 text-sm"
+                        >
+                          <div>{row.date}</div>
+                          <div className="font-medium text-slate-900">
+                            {row.account}
+                          </div>
+                          <div>{row.channel}</div>
+                          <div>{currencyFmt.format(row.amount)}</div>
+                          <div className="text-slate-500">{row.notes || "—"}</div>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -927,7 +1080,7 @@ export default function Page() {
         ) : (
           <>
             {selectedView === "quarterly" ? (
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <span className="text-sm text-slate-500">Quarter</span>
                 <select
                   value={selectedQuarter}
@@ -954,18 +1107,18 @@ export default function Page() {
                   type="date"
                   value={customStart}
                   onChange={(e) => setCustomStart(e.target.value)}
-                  className="w-auto"
+                  className="w-full sm:w-auto"
                 />
                 <Input
                   type="date"
                   value={customEnd}
                   onChange={(e) => setCustomEnd(e.target.value)}
-                  className="w-auto"
+                  className="w-full sm:w-auto"
                 />
               </div>
             ) : null}
 
-            <div className="inline-flex flex-wrap rounded-xl border bg-white p-1 shadow-sm">
+            <div className="inline-flex w-full flex-wrap rounded-xl border bg-white p-1 shadow-sm sm:w-auto">
               {viewOptions.map((option) => (
                 <Button
                   key={option.key}
@@ -979,7 +1132,7 @@ export default function Page() {
               ))}
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <KpiCard
                 title="Net sales"
                 value={currencyFmt.format(totalRevenue)}
@@ -1000,7 +1153,7 @@ export default function Page() {
               />
             </div>
 
-            <div className="flex items-center justify-between rounded-2xl border bg-white p-4 shadow-sm">
+            <div className="flex flex-col justify-between gap-4 rounded-2xl border bg-white p-4 shadow-sm md:flex-row md:items-center">
               <div>
                 <p className="text-sm font-medium text-slate-900">Goals</p>
                 <p className="text-sm text-slate-500">
@@ -1029,7 +1182,7 @@ export default function Page() {
             </div>
 
             {showGoals ? (
-              <div className="grid grid-cols-[1.2fr_0.8fr] gap-6">
+              <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_0.8fr]">
                 <Card className="rounded-3xl border-0 shadow-sm">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -1038,7 +1191,7 @@ export default function Page() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
                       <label className="text-sm text-slate-500">Month</label>
                       <select
                         value={selectedGoalMonth}
@@ -1053,7 +1206,7 @@ export default function Page() {
                       </select>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                       <div className="rounded-2xl bg-slate-50 p-4">
                         <p className="text-sm text-slate-500">Monthly total goal</p>
                         <Input
@@ -1103,9 +1256,9 @@ export default function Page() {
               </div>
             ) : null}
 
-            <div className="grid grid-cols-[1.6fr_0.8fr] gap-6">
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.6fr_0.8fr]">
               <Card className="rounded-3xl">
-                <CardHeader className="flex flex-row items-center justify-between gap-4">
+                <CardHeader className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                   <CardTitle>Revenue by channel</CardTitle>
                   <div className="flex flex-wrap gap-2">
                     {channelRows.map((row) => {
@@ -1124,11 +1277,15 @@ export default function Page() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-[420px]">
+                  <div className="h-[280px] md:h-[420px]">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={combinedChartData} stackOffset="none">
+                      <BarChart
+                        key={`main-${selectedView}-${selectedQuarter}-${selectedGoalMonth}-${customStart}-${customEnd}`}
+                        data={combinedChartData}
+                        stackOffset="none"
+                      >
                         <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="label" />
+                        <XAxis dataKey="label" minTickGap={20} />
                         <YAxis tickFormatter={(v: number) => `$${v / 1000}K`} />
                         <Tooltip
                           formatter={(v: any) => [
@@ -1169,15 +1326,15 @@ export default function Page() {
                   <CardTitle>Channel mix</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-[420px]">
+                  <div className="h-[280px] md:h-[420px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
                           data={mixData}
                           dataKey="value"
                           nameKey="name"
-                          innerRadius={80}
-                          outerRadius={130}
+                          innerRadius={60}
+                          outerRadius={100}
                           paddingAngle={3}
                         >
                           {mixData.map((entry, index) => (
@@ -1201,7 +1358,7 @@ export default function Page() {
               </Card>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {filteredRows.map((r) => (
                 <ChannelCard
                   key={r.channel}
@@ -1214,7 +1371,7 @@ export default function Page() {
 
             {selectedDetailRow ? (
               <Card className="rounded-3xl border-0 shadow-sm">
-                <CardHeader className="flex flex-row items-center justify-between">
+                <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                   <CardTitle>{selectedDetailRow.channel} detail</CardTitle>
                   <Button
                     variant="outline"
@@ -1225,7 +1382,7 @@ export default function Page() {
                   </Button>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div className="grid grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                     <KpiCard
                       title="Revenue"
                       value={currencyFmt.format(selectedDetailRow.revenue)}
@@ -1253,7 +1410,7 @@ export default function Page() {
                   </div>
 
                   {showGoals ? (
-                    <div className="grid grid-cols-[1.1fr_0.9fr] gap-6">
+                    <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
                       <Card className="rounded-2xl border-0 bg-slate-50 shadow-sm">
                         <CardHeader>
                           <CardTitle className="text-base">
@@ -1261,7 +1418,7 @@ export default function Page() {
                           </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
-                          <div className="flex items-center gap-3">
+                          <div className="flex flex-wrap items-center gap-3">
                             <label className="text-sm text-slate-500">Month</label>
                             <select
                               value={selectedGoalMonth}
@@ -1301,11 +1458,14 @@ export default function Page() {
                           <CardTitle className="text-base">Channel trend</CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <div className="h-[260px]">
+                          <div className="h-[220px] md:h-[260px]">
                             <ResponsiveContainer width="100%" height="100%">
-                              <LineChart data={detailChartData}>
+                              <LineChart
+                                key={`detail-${selectedDetailChannel}-${selectedView}-${selectedQuarter}-${selectedGoalMonth}-${customStart}-${customEnd}`}
+                                data={detailChartData}
+                              >
                                 <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="label" />
+                                <XAxis dataKey="label" minTickGap={20} />
                                 <YAxis
                                   tickFormatter={(v: number) => `$${v / 1000}K`}
                                 />
@@ -1362,7 +1522,7 @@ export default function Page() {
                     className="min-h-[220px] w-full rounded-xl border p-3 text-sm"
                   />
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     <Button onClick={importData}>Import rows</Button>
                     {importMessage ? (
                       <span className="text-sm text-slate-500">{importMessage}</span>
@@ -1377,7 +1537,7 @@ export default function Page() {
                   <CardTitle>Manual revenue entries</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     <Input
                       type="date"
                       value={newManualEntry.date}
@@ -1452,7 +1612,7 @@ export default function Page() {
                   <div className="space-y-2">
                     {manualEntries.length === 0 ? (
                       <div className="rounded-xl border bg-slate-50 p-4 text-sm text-slate-500">
-                        No entries yet. Import some rows above to populate the dashboard.
+                        No entries yet. Import some rows above to populate the Corporate channel.
                       </div>
                     ) : (
                       manualEntries.map((entry) => (
@@ -1460,7 +1620,7 @@ export default function Page() {
                           key={entry.id}
                           className="rounded-xl border bg-slate-50 p-3 text-sm"
                         >
-                          <div className="flex items-center justify-between">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <div>
                               <p className="font-medium text-slate-900">
                                 {entry.account} · {entry.channel}
